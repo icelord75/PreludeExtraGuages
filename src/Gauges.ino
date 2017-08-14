@@ -23,8 +23,8 @@
    OLED                  ✓
    dimm                  ✓
    switch                ✓
-   VFD needile           ❏
-   VFD bar               ❏
+   VFD needile           ✓
+   VFD bar               ✓
    ANALOG TO ADS1115!!   ❏
    Voltmeter             ❏
    Oil pressure          ❏
