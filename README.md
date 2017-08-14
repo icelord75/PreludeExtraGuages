@@ -1,4 +1,4 @@
-#PreludeExtraGuages
+PreludeExtraGuages
 ===================
 
 Secondary VFD dashboard display controller for Honda Prelude IV
@@ -11,7 +11,7 @@ Supported modes:
  ✷ AirFuelRatio sensor / EGT sensor
  ✷ Contactless brakes temperature
 
- #License
- ========
+License
+========
 
  PreludeExtraGuages is available under GPL License.

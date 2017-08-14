@@ -43,7 +43,7 @@ Adafruit_ADS1115 ads;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 MAX6675 thermocouple;
 
-#define VISUAL_DELAY  100 // Refresh delay
+#define VISUAL_DELAY  0 // Refresh delay
 
 //
 // SENSORS
@@ -131,6 +131,12 @@ boolean SHOW_LOGO = true;
 int LOGO_STATUS = STATE_OIL;
 #define MAX_LOGO      4
 
+unsigned long time=0;
+unsigned long timeP=0;
+#define LOG_DELAY 1000
+unsigned long timeL=0;
+#define LOGO_DELAY 3000
+
 void setup() {
         pinMode (SI_PIN, OUTPUT);
         pinMode (SCK_PIN, OUTPUT);
@@ -176,34 +182,58 @@ void DrawGauges()
 {
         int i;
 
+
+        if (time>timeL)
+        {
+        u8g.firstPage();
+        do
+        {
+          u8g.setFont(u8g_font_fub20);
+          u8g.setPrintPos(0, 20);
         // Add extra info to OLED and make precount for VFD
                 switch (LOGO_STATUS)
                 {
                 case STATE_OIL:
-                        u8g.print(OIL_TEMP);
-                        u8g.print("° / ");
-                        u8g.print(OIL_PRESSURE);
-                        TARGETPOS_L = int(OIL_PRESSURE*3.5); /* 0 -  3  - 6  */
-                        TARGETPOS_R = int(OIL_TEMP/40);      /* 0 - 120 - 240 */
+                        u8g.print(OIL_PRESSURE);u8g.print("bar");
+                        u8g.setPrintPos(0, 60);
+                        u8g.print(int(OIL_TEMP));u8g.print(char(176));u8g.print("C");
                         break;
                 case STATE_EXHAUST:
-                        u8g.print(EGT);
-                        u8g.print("°");
-                        TARGETPOS_L = int(AFR*20);           /* 0 - 0.5 - 1   */
-                        TARGETPOS_R = int(EGT/100);          /* 0 - 300 - 700 */
+                        u8g.print("Exhausts");
+                        u8g.setPrintPos(0, 60);
+                        u8g.print(int(EGT));u8g.print(char(176));u8g.print("C");
                         break;
                 case STATE_BRAKES:
-                        u8g.print(BRAKES_TEMP);
-                        u8g.print("°");
-                        TARGETPOS_R = int(BRAKES_TEMP/43);   /* 0 - 130 - 300 */
+                u8g.print("Brakes");
+                u8g.setPrintPos(0, 60);
+                        u8g.print(int(BRAKES_TEMP));u8g.print(char(176));u8g.print("C");
                         break;
                 case STATE_VOLT:
+                u8g.print("Battery");
+                u8g.setPrintPos(0, 60);
                         u8g.print(VOLTAGE);
                         u8g.print("V");
-                        TARGETPOS_L = int( VOLTAGE / 1.4 );  /* 0 - 14  - 28  */
                         break;
                 }
-
+          } while( u8g.nextPage() );
+        }
+        switch (LOGO_STATUS)
+        {
+              case STATE_OIL:
+                      TARGETPOS_L = int(OIL_PRESSURE*3.5); /* 0 -  3  - 6  */
+                      TARGETPOS_R = int(OIL_TEMP/40);      /* 0 - 120 - 240 */
+                      break;
+              case STATE_EXHAUST:
+                      TARGETPOS_L = int(AFR*20);           /* 0 - 0.5 - 1   */
+                      TARGETPOS_R = int(EGT/100);          /* 0 - 300 - 700 */
+                      break;
+              case STATE_BRAKES:
+                      TARGETPOS_R = int(BRAKES_TEMP/43);   /* 0 - 130 - 300 */
+                      break;
+              case STATE_VOLT:
+                      TARGETPOS_L = int( VOLTAGE / 1.4 );  /* 0 - 14  - 28  */
+                      break;
+        }
         // Zero negative vaules and fix over values
         if ( TARGETPOS_L < 0 ) TARGETPOS_L = 0;
         if ( TARGETPOS_L > 20) TARGETPOS_L = 20;
@@ -215,35 +245,30 @@ void DrawGauges()
         if ( POSITION_L > TARGETPOS_L ) POSITION_L--;
         if ( POSITION_R < TARGETPOS_R ) POSITION_R++;
         if ( POSITION_R > TARGETPOS_R ) POSITION_R--;
+
         digitalWrite (SI_PIN, LOW);
         digitalWrite (SCK_PIN, HIGH);
         digitalWrite (LH_PIN, LOW);
-
         // Walk over gauge indicator positions
         // 5-24 Fuel (righ - left)
         // 31-37 Temp (right - left)
 
         for (i = 0; i <= 43; i++)
         {
-          digitalWrite (SCK_PIN, LOW);
                digitalWrite (SCK_PIN, LOW);
-
-                if ((DRAW_L && (i == 25 )) ||    // Draw left gauge
+                if ((DRAW_L && (i == 26 )) ||    // Draw left gauge
                     (DRAW_R && (i == 38 || i == 41 )) || // Draw Right gauge
                     (DRAW_R && DRAW_RL && ( i==39 || i == 40 || i == 42 || i == 43)) // Draw Right gauge letters
                     ) digitalWrite (SI_PIN, HIGH);
-                if ((i >= 5 && i <= 24) && DRAW_L ) {      // LEFT 20
+                if ((i >= 5 && i <= 25) && DRAW_L ) {      // LEFT 20
                         if ((TYPE_L==BAR) && (POSITION_L<=(i-5))) digitalWrite (SI_PIN, HIGH);
-                        else
                         if ((TYPE_L==NEEDLE) && (POSITION_L==(i-5))) digitalWrite (SI_PIN, HIGH);
                 }
 
                 if ((i >= 31 && i <= 37) && DRAW_R ) {     // RIGHT 6
                         if ((TYPE_R==BAR) && (POSITION_R<=(i-31))) digitalWrite (SI_PIN, HIGH);
-                        else
                         if ((TYPE_R==NEEDLE) && (POSITION_R==(i-31))) digitalWrite (SI_PIN, HIGH);
                 }
-
                 digitalWrite (SCK_PIN, HIGH);
                 digitalWrite (SI_PIN, LOW);
         }
@@ -256,8 +281,6 @@ void DrawGauges()
 void ReadSensors() {
         int val;
         float vout;
-        unsigned long time;
-
         // Oil temperature with NTC thermocouple
 //        val = ads.readADC_SingleEnded(OIL_TEMP_SENSOR);
         val = analogRead(OIL_TEMP_SENSOR);
@@ -268,7 +291,7 @@ void ReadSensors() {
         // Oil pressure
 //        val = ads.readADC_SingleEnded(OIL_PRESSURE_SENSOR);
         val = analogRead(OIL_PRESSURE_SENSOR);
-        val = val * (val/1023.0);
+        val = val * (val/1023.0) / 5;
         OIL_PRESSURE = ((2.1271 * val) + 5.1075 ) * val - 0.2561;
 
         // Voltmeter
@@ -291,7 +314,9 @@ void ReadSensors() {
 
         // Data logging
         time = millis();
-/*        Serial.print(time);
+        if (time >= timeP)
+        {
+        Serial.print(time);
         Serial.print(", "); Serial.print(OIL_TEMP);
         Serial.print(", "); Serial.print(OIL_PRESSURE);
         Serial.print(", "); Serial.print(VOLTAGE);
@@ -300,7 +325,8 @@ void ReadSensors() {
         Serial.print(", "); Serial.print(BRAKES_TEMP);
         Serial.print(", "); Serial.print(val);
         Serial.print("\n");
-*/
+        timeP=time+LOG_DELAY;
+        }
 }
 
 /*
@@ -335,7 +361,7 @@ void loop() {
                         case STATE_OIL:     DRAW_R = true; DRAW_RL = true; DRAW_L = true; TYPE_R = BAR; TYPE_L = BAR;break;
                         case STATE_EXHAUST: DRAW_R = true; DRAW_RL = true; DRAW_L = true; TYPE_R = BAR; TYPE_L = NEEDLE;break;
                         case STATE_BRAKES:  DRAW_R = true; DRAW_RL = true; DRAW_L = false;TYPE_R = BAR; TYPE_L = NONE;break;
-                        case STATE_VOLT:    DRAW_R = false;DRAW_RL = false;DRAW_L = true; TYPE_R = NONE;TYPE_L = BAR;break;
+                        case STATE_VOLT:    DRAW_R = false;DRAW_RL = false;DRAW_L = true; TYPE_R = NONE;TYPE_L = NEEDLE;break;
                         }
                         SHOW_LOGO = true;
                 }
@@ -356,6 +382,7 @@ void loop() {
                         }
                 } while( u8g.nextPage() );
                 SHOW_LOGO = false;
+                timeL=time+LOGO_DELAY;
         }
 
         //Draw VFD gauges
