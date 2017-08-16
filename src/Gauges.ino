@@ -21,7 +21,7 @@
 
 /******** TODO **********
    OLED                  ✓
-   dimm                  ✓
+   dimm                ✓/❏
    switch                ✓
    VFD needile           ✓
    VFD bar               ✓
@@ -43,7 +43,7 @@ Adafruit_ADS1115 ads;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 MAX6675 thermocouple;
 
-#define VISUAL_DELAY  0 // Refresh delay
+#define VISUAL_DELAY  1 // Refresh delay
 
 //
 // SENSORS
@@ -106,7 +106,6 @@ int BUTTON_PREVSTATE = 0;
      SDL-------------A4
      SDA-------------A5
  */
-
 #define NONE   0
 #define BAR    1
 #define NEEDLE 2
@@ -132,50 +131,55 @@ int LOGO_STATUS = STATE_OIL;
 #define MAX_LOGO      4
 
 unsigned long time=0;
+
+//#define DATALOG_ENABLE        // SERIAL DATALOGING
 unsigned long timeP=0;
 #define LOG_DELAY 1000
+
 unsigned long timeL=0;
 #define LOGO_DELAY 3000
 
 void setup() {
+// pins config
         pinMode (SI_PIN, OUTPUT);
         pinMode (SCK_PIN, OUTPUT);
         pinMode (LH_PIN, OUTPUT);
+// init VFD
+        digitalWrite (SI_PIN, LOW);
+        digitalWrite (SCK_PIN, HIGH);
+        digitalWrite (LH_PIN, LOW);
+// configure rest pins
         pinMode (BUTTON_PIN, INPUT);
         pinMode (DIMMER_PIN, INPUT);
+
+#ifdef DATALOG_ENABLE
+        Serial.begin(115200);
+        Serial.println("Ab0VE-TECH Honda Prelude Gauges contoller");
+#endif
 
 // OLED INIT
         u8g.setContrast(0xff);
         u8g.firstPage();
         u8g.setRot180(); // Rorate screen with wires goes down
         do {
-              u8g.drawXBMP( 0, 0, 128, 64, Prelude_LOGO);
+                u8g.drawXBMP( 0, 0, 128, 64, Prelude_LOGO);
         } while( u8g.nextPage() );
 
-        //                                                     ADS1015 ADS1115
-        // ads.setGain(GAIN_TWOTHIRDS);  // +/- 6.144V 1 bit = 3mV     0.1875mV
-        // ads.setGain(GAIN_ONE);        // +/- 4.096V 1 bit = 2mV     0.125mV
-        // ads.setGain(GAIN_TWO);        // +/- 2.048V 1 bit = 1mV     0.0625mV
-        // ads.setGain(GAIN_FOUR);       // +/- 1.024V 1 bit = 0.5mV   0.03125mV
-        // ads.setGain(GAIN_EIGHT);      // +/- 0.512V 1 bit = 0.25mV  0.015625mV
-        // ads.setGain(GAIN_SIXTEEN);    // +/- 0.256V 1 bit = 0.125mV 0.0078125mV
+// AD initn
         ads.begin();
         ads.setGain(GAIN_TWO); // ADS1115: +2.048V/0.0625mV
 
+// EGR sensor
         thermocouple.begin(thermoCLK, thermoCS, thermoDO);
 
+// PIR brake rotor sensor
         mlx.begin();
-
-// init VFD
-        digitalWrite (SI_PIN, LOW);
-        digitalWrite (SCK_PIN, HIGH);
-        digitalWrite (LH_PIN, LOW);
 
         delay(1500);
 
-        Serial.begin(115200);
-        Serial.println("Ab0VE-TECH Honda Prelude Gauges contoller");
-        Serial.println("TIME, OIL_T, OIL_P, VOLT, AFR ,EGT, BRAKES, AMBIENT");
+#ifdef DATALOG_ENABLE
+          Serial.println("TIME, OIL_T, OIL_P, VOLT, AFR ,EGT, BRAKES, AMBIENT");
+#endif
 }
 
 void DrawGauges()
@@ -183,56 +187,58 @@ void DrawGauges()
         int i;
 
 
-        if (time>timeL)
+        if (time>timeL) // Delay while new LOGO displayed
         {
-        u8g.firstPage();
-        do
-        {
-          u8g.setFont(u8g_font_fub20);
-          u8g.setPrintPos(0, 20);
-        // Add extra info to OLED and make precount for VFD
-                switch (LOGO_STATUS)
+                u8g.firstPage();
+                do
                 {
-                case STATE_OIL:
-                        u8g.print(OIL_PRESSURE);u8g.print("bar");
-                        u8g.setPrintPos(0, 60);
-                        u8g.print(int(OIL_TEMP));u8g.print(char(176));u8g.print("C");
-                        break;
-                case STATE_EXHAUST:
-                        u8g.print("Exhausts");
-                        u8g.setPrintPos(0, 60);
-                        u8g.print(int(EGT));u8g.print(char(176));u8g.print("C");
-                        break;
-                case STATE_BRAKES:
-                u8g.print("Brakes");
-                u8g.setPrintPos(0, 60);
-                        u8g.print(int(BRAKES_TEMP));u8g.print(char(176));u8g.print("C");
-                        break;
-                case STATE_VOLT:
-                u8g.print("Battery");
-                u8g.setPrintPos(0, 60);
-                        u8g.print(VOLTAGE);
-                        u8g.print("V");
-                        break;
-                }
-          } while( u8g.nextPage() );
+                        u8g.setFont(u8g_font_fub20);
+                        u8g.setPrintPos(0, 20);
+                        // Add extra info to OLED
+                        switch (LOGO_STATUS)
+                        {
+                        case STATE_OIL:
+                                u8g.print(OIL_PRESSURE); u8g.print("bar");
+                                u8g.setPrintPos(0, 60);
+                                u8g.print(int(OIL_TEMP)); u8g.print(char(176)); u8g.print("C");
+                                break;
+                        case STATE_EXHAUST:
+                                u8g.print("Exhausts");
+                                u8g.setPrintPos(0, 60);
+                                u8g.print(int(EGT)); u8g.print(char(176)); u8g.print("C");
+                                break;
+                        case STATE_BRAKES:
+                                u8g.print("Brakes");
+                                u8g.setPrintPos(0, 60);
+                                u8g.print(int(BRAKES_TEMP)); u8g.print(char(176)); u8g.print("C");
+                                break;
+                        case STATE_VOLT:
+                                u8g.print("Battery");
+                                u8g.setPrintPos(0, 60);
+                                u8g.print(VOLTAGE);
+                                u8g.print("V");
+                                break;
+                        }
+                } while( u8g.nextPage() );
         }
+
+        // Process VFD scale position
         switch (LOGO_STATUS)
         {
-              case STATE_OIL:
-                      TARGETPOS_L = int(OIL_PRESSURE*3.5); /* 0 -  3  - 6  */
-                      TARGETPOS_R = int(OIL_TEMP/40);      /* 0 - 120 - 240 */
-                      break;
-              case STATE_EXHAUST:
-                      TARGETPOS_L = int(AFR*20);           /* 0 - 0.5 - 1   */
-                      TARGETPOS_R = int(EGT/100);          /* 0 - 300 - 700 */
-                      break;
-              case STATE_BRAKES:
-                      TARGETPOS_R = int(BRAKES_TEMP/43);   /* 0 - 130 - 300 */
-                      break;
-              case STATE_VOLT:
-                      TARGETPOS_L = int( VOLTAGE / 1.4 );  /* 0 - 14  - 28  */
-                      break;
+        case STATE_OIL:
+                TARGETPOS_L = int(OIL_PRESSURE*3.5);       /* 0 -  3  - 6  */
+                TARGETPOS_R = int(OIL_TEMP/40);            /* 0 - 120 - 240 */
+                break;
+        case STATE_EXHAUST:
+                TARGETPOS_L = int(AFR*20);                 /* 0 - 0.5 - 1   */
+                TARGETPOS_R = int(EGT/100);                /* 0 - 300 - 700 */
+                break;
+        case STATE_BRAKES:
+                TARGETPOS_R = int(BRAKES_TEMP/43);         /* 0 - 130 - 300 */
+                break;
+        case STATE_VOLT:
+                TARGETPOS_L = int( VOLTAGE / 1.4 );        /* 0 - 14  - 28  */
+                break;
         }
         // Zero negative vaules and fix over values
         if ( TARGETPOS_L < 0 ) TARGETPOS_L = 0;
@@ -255,8 +261,8 @@ void DrawGauges()
 
         for (i = 0; i <= 43; i++)
         {
-               digitalWrite (SCK_PIN, LOW);
-                if ((DRAW_L && (i == 26 )) ||    // Draw left gauge
+                digitalWrite (SCK_PIN, LOW);
+                if ((DRAW_L && (i == 26 || i == 27 || i == 28)) ||    // Draw left gauge !!!!!CHECK!!!!
                     (DRAW_R && (i == 38 || i == 41 )) || // Draw Right gauge
                     (DRAW_R && DRAW_RL && ( i==39 || i == 40 || i == 42 || i == 43)) // Draw Right gauge letters
                     ) digitalWrite (SI_PIN, HIGH);
@@ -314,19 +320,21 @@ void ReadSensors() {
 
         // Data logging
         time = millis();
+#ifdef DATALOG_ENABLE
         if (time >= timeP)
         {
-        Serial.print(time);
-        Serial.print(", "); Serial.print(OIL_TEMP);
-        Serial.print(", "); Serial.print(OIL_PRESSURE);
-        Serial.print(", "); Serial.print(VOLTAGE);
-        Serial.print(", "); Serial.print(AFR);
-        Serial.print(", "); Serial.print(EGT);
-        Serial.print(", "); Serial.print(BRAKES_TEMP);
-        Serial.print(", "); Serial.print(val);
-        Serial.print("\n");
-        timeP=time+LOG_DELAY;
+                Serial.print(time);
+                Serial.print(", "); Serial.print(OIL_TEMP);
+                Serial.print(", "); Serial.print(OIL_PRESSURE);
+                Serial.print(", "); Serial.print(VOLTAGE);
+                Serial.print(", "); Serial.print(AFR);
+                Serial.print(", "); Serial.print(EGT);
+                Serial.print(", "); Serial.print(BRAKES_TEMP);
+                Serial.print(", "); Serial.print(val);
+                Serial.print("\n");
+                timeP=time+LOG_DELAY;
         }
+#endif
 }
 
 /*
@@ -358,10 +366,10 @@ void loop() {
                         if (LOGO_STATUS > MAX_LOGO) LOGO_STATUS = 1;
                         switch (LOGO_STATUS)
                         {
-                        case STATE_OIL:     DRAW_R = true; DRAW_RL = true; DRAW_L = true; TYPE_R = BAR; TYPE_L = BAR;break;
-                        case STATE_EXHAUST: DRAW_R = true; DRAW_RL = true; DRAW_L = true; TYPE_R = BAR; TYPE_L = NEEDLE;break;
-                        case STATE_BRAKES:  DRAW_R = true; DRAW_RL = true; DRAW_L = false;TYPE_R = BAR; TYPE_L = NONE;break;
-                        case STATE_VOLT:    DRAW_R = false;DRAW_RL = false;DRAW_L = true; TYPE_R = NONE;TYPE_L = NEEDLE;break;
+                        case STATE_OIL:     DRAW_R = true; DRAW_RL = true; DRAW_L = true; TYPE_R = BAR; TYPE_L = BAR; break;
+                        case STATE_EXHAUST: DRAW_R = true; DRAW_RL = true; DRAW_L = true; TYPE_R = BAR; TYPE_L = NEEDLE; break;
+                        case STATE_BRAKES:  DRAW_R = true; DRAW_RL = true; DRAW_L = false; TYPE_R = BAR; TYPE_L = NONE; break;
+                        case STATE_VOLT:    DRAW_R = false; DRAW_RL = false; DRAW_L = true; TYPE_R = NONE; TYPE_L = NEEDLE; break;
                         }
                         SHOW_LOGO = true;
                 }
