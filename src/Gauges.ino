@@ -21,25 +21,25 @@
 
 /******** TODO **********
    OLED                  ✓
-   dimm                ✓/❏
+   dimm                  ✓
    switch                ✓
    VFD needile           ✓
    VFD bar               ✓
-   ANALOG TO ADS1115!!   ❏
-   Voltmeter             ❏
+   Voltmeter             ✓
    Oil pressure          ❏
    Oil temperature       ❏
-   AirFuelRatio sensor   ❏
+   AirFuelRatio sensor   ✓
    EGT                   ❏
-   Brakes temperature    ❏
+   Brakes temperature    ✓
  *************************/
 
 int thermoDO  = 4;
 int thermoCS  = 5;
 int thermoCLK = 6;
 
-U8GLIB_SH1106_128X64 u8g(U8G_I2C_OPT_NONE); // I2C / TWI
+U8GLIB_SSD1306_128X64_2X u8g(U8G_I2C_OPT_NONE);
 Adafruit_ADS1115 ads;
+Adafruit_ADS1115 ads1115(0x48);	// construct an ads1115 at address 0x49
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 MAX6675 thermocouple;
 
@@ -61,8 +61,8 @@ float OIL_PRESSURE = 0;
 
 /* VOLTMETER    /        - */
 #define VOLTMETER_SENSOR    A2
-#define R1 100000.0 // resistance of R1 (100K) in voltage divider
-#define R2 10000.0  // resistance of R2 (10K) in voltage divider
+#define R1 47000.0 // resistance of R1 (47) in voltage divider
+#define R2 9950.0  // resistance of R2 (10K) in voltage divider
 float VOLTAGE = 0;
 
 /*    -         / BRAKES TEMPERATURE
@@ -93,7 +93,7 @@ int SI_PIN  = 8; // Blue
 int SCK_PIN = 7; // Green
 int LH_PIN  = 6; // Gray
 
-int DIMMER_PIN = 3; // Dimer input - High +12V!
+int DIMMER_PIN = 13; // Dimer input - High +12V!
 int DIMMER_STATE = 0;
 int DIMMER_PREVSTATE = 0;
 
@@ -132,12 +132,17 @@ int LOGO_STATUS = STATE_OIL;
 
 unsigned long time=0;
 
-//#define DATALOG_ENABLE        // SERIAL DATALOGING
+#define DATALOG_ENABLE        // SERIAL DATALOGING
 unsigned long timeP=0;
 #define LOG_DELAY 1000
 
+// Delay for data update on OLED after new logo shown
 unsigned long timeL=0;
 #define LOGO_DELAY 3000
+
+// OLED data update delay
+unsigned long timeOLED=0;
+#define OLED_DELAY 500
 
 void setup() {
 // pins config
@@ -189,6 +194,9 @@ void DrawGauges()
 
         if (time>timeL) // Delay while new LOGO displayed
         {
+          if (time>timeOLED) // Delay for DATA update
+           {
+                timeOLED=time+OLED_DELAY;
                 u8g.firstPage();
                 do
                 {
@@ -220,30 +228,32 @@ void DrawGauges()
                                 break;
                         }
                 } while( u8g.nextPage() );
+              }
         }
 
         // Process VFD scale position
         switch (LOGO_STATUS)
         {
         case STATE_OIL:
-                TARGETPOS_L = int(OIL_PRESSURE*3.5);       /* 0 -  3  - 6  */
-                TARGETPOS_R = int(OIL_TEMP/40);            /* 0 - 120 - 240 */
+                TARGETPOS_L = 20-int(OIL_PRESSURE*3.33);      /* 0 -  3  - 6  */
+                TARGETPOS_R = 7-int(OIL_TEMP/21.4);          /* 0 - 120 - 240 */
                 break;
         case STATE_EXHAUST:
-                TARGETPOS_L = int(AFR*20);                 /* 0 - 0.5 - 1   */
-                TARGETPOS_R = int(EGT/100);                /* 0 - 300 - 700 */
+                TARGETPOS_L = 20-int(AFR*20);                /* 0 - 0.5 - 1   */
+                TARGETPOS_R = 7-int(EGT/100);                /* 0 - 300 - 700 */
                 break;
         case STATE_BRAKES:
-                TARGETPOS_R = int(BRAKES_TEMP/43);         /* 0 - 130 - 300 */
+                TARGETPOS_R = 7-int(BRAKES_TEMP/54);         /* 0 - 130 - 300 */
                 break;
         case STATE_VOLT:
-                TARGETPOS_L = int( VOLTAGE / 1.4 );        /* 0 - 14  - 28  */
+                TARGETPOS_L = 20-int( VOLTAGE - 8)*2;        /* 0 - 14  - 28  */
                 break;
         }
+
         // Zero negative vaules and fix over values
-        if ( TARGETPOS_L < 0 ) TARGETPOS_L = 0;
+        if ( TARGETPOS_L < 1 ) TARGETPOS_L = 1;
         if ( TARGETPOS_L > 20) TARGETPOS_L = 20;
-        if ( TARGETPOS_R < 0 ) TARGETPOS_R = 0;
+        if ( TARGETPOS_R < 1 ) TARGETPOS_R = 1;
         if ( TARGETPOS_R > 7 ) TARGETPOS_R = 7;
 
         // Arrage positions
@@ -262,7 +272,7 @@ void DrawGauges()
         for (i = 0; i <= 43; i++)
         {
                 digitalWrite (SCK_PIN, LOW);
-                if ((DRAW_L && (i == 26 || i == 27 || i == 28)) ||    // Draw left gauge !!!!!CHECK!!!!
+                if ((DRAW_L && (i == 26 || i == 27 || i == 28 )) ||    // Draw left gauge !!!!!CHECK!!!!
                     (DRAW_R && (i == 38 || i == 41 )) || // Draw Right gauge
                     (DRAW_R && DRAW_RL && ( i==39 || i == 40 || i == 42 || i == 43)) // Draw Right gauge letters
                     ) digitalWrite (SI_PIN, HIGH);
@@ -293,12 +303,14 @@ void ReadSensors() {
         val=((1024 * val / R3 ) - val);
         val = log(val);
         OIL_TEMP = 1 / (0.0016 + (0.0002 * val) + (1.0813481443911684e-7 * val * val * val));
+        if (OIL_TEMP > 150) OIL_TEMP=150;
 
         // Oil pressure
 //        val = ads.readADC_SingleEnded(OIL_PRESSURE_SENSOR);
         val = analogRead(OIL_PRESSURE_SENSOR);
         val = val * (val/1023.0) / 5;
         OIL_PRESSURE = ((2.1271 * val) + 5.1075 ) * val - 0.2561;
+        if (OIL_PRESSURE > 6) OIL_PRESSURE=6;
 
         // Voltmeter
 //        val = ads.readADC_SingleEnded(VOLTMETER_SENSOR);
@@ -307,14 +319,15 @@ void ReadSensors() {
         VOLTAGE = vout / (R2 / (R1 + R2));
 
         // AirFuelRatio
-        AFR = ads.readADC_SingleEnded(AFR_INPUT);
+        //ADS1115: +2.048V/0.0625mV
+        AFR = (ads.readADC_SingleEnded(AFR_INPUT) * 0.0625) / 1000;
 
         // Exhaust Gas Temtrature
         EGT = thermocouple.readCelsius();
 
         // Brakes temperature
         BRAKES_TEMP=mlx.readObjectTempC();
-
+        if (BRAKES_TEMP > 380) BRAKES_TEMP=380;
         // Brakes ambient temperature for datalog only
         val=mlx.readAmbientTempC();
 
@@ -342,7 +355,7 @@ void ReadSensors() {
  */
 void loop() {
 
-        // Read all sensors and dataloging
+        // Read all sensors and datalogincg
         ReadSensors();
 
         // Dimmer signal check
@@ -350,7 +363,7 @@ void loop() {
         if (DIMMER_STATE != DIMMER_PREVSTATE)
         {
                 if (DIMMER_STATE == HIGH)
-                        u8g.setContrast(70);
+                        u8g.setContrast(50);
                 else
                         u8g.setContrast(255);
                 DIMMER_PREVSTATE = DIMMER_STATE;
