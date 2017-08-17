@@ -39,7 +39,7 @@ int thermoCLK = 6;
 
 U8GLIB_SSD1306_128X64_2X u8g(U8G_I2C_OPT_NONE);
 Adafruit_ADS1115 ads;
-Adafruit_ADS1115 ads1115(0x48);	// construct an ads1115 at address 0x49
+Adafruit_ADS1115 ads1115(0x48);	// construct an ads1115 at address 0x48
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 MAX6675 thermocouple;
 
@@ -61,7 +61,7 @@ float OIL_PRESSURE = 0;
 
 /* VOLTMETER    /        - */
 #define VOLTMETER_SENSOR    A2
-#define R1 47000.0 // resistance of R1 (47) in voltage divider
+#define R1 47000.0 // resistance of R1 (47K ) in voltage divider
 #define R2 9950.0  // resistance of R2 (10K) in voltage divider
 float VOLTAGE = 0;
 
@@ -272,7 +272,7 @@ void DrawGauges()
         for (i = 0; i <= 43; i++)
         {
                 digitalWrite (SCK_PIN, LOW);
-                if ((DRAW_L && (i == 26 || i == 27 || i == 28 )) ||    // Draw left gauge !!!!!CHECK!!!!
+                if ((DRAW_L && (i == 26 || i == 27 || i == 28 )) ||    // Draw left gauge
                     (DRAW_R && (i == 38 || i == 41 )) || // Draw Right gauge
                     (DRAW_R && DRAW_RL && ( i==39 || i == 40 || i == 42 || i == 43)) // Draw Right gauge letters
                     ) digitalWrite (SI_PIN, HIGH);
@@ -355,7 +355,7 @@ void ReadSensors() {
  */
 void loop() {
 
-        // Read all sensors and datalogincg
+        // Read all sensors and dataloging
         ReadSensors();
 
         // Dimmer signal check
