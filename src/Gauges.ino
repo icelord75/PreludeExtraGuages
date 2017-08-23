@@ -10,29 +10,41 @@
    //   Ab0VE TECH - HONDA Prelude Gen4 VFD Gauges controller
  */
 
-#include <SPI.h>
-#include <avr/pgmspace.h>
-#include <U8glib.h> //platformio lib install "U8glib"
-#include <Adafruit_ADS1015.h> // platformio lib install "Adafruit ADS1X15"
-#include <Adafruit_MLX90614.h> // platformio lib install "Adafruit MLX90614 Library"
-#include <max6675.h> // platformio lib install "MAX6675"
-
-#include "img.h" // Mode logos
+ /* Controller connections
+            ┌╌╌──╌╌╌╌╌╌╌┐
+            • TX    Vin •
+            • RX  A Gnd •  <- GND
+            • RST R RST •
+     GND -> • GND D  +5 •  <- +5V Reg. LM2596HV
+  MAX DO -> • 2   U  A7 •
+  MAX CS <- • 3   I  A6 •
+ MAX CLK <- • 4   N  A5 • -> OLED/ADS/MLX SDA
+   Alarm <- • 5   O  A4 • -> OLED/ADS/MLX SDL
+  VFD LH <- • 6      A3 •
+ VFD SCK <- • 7   N  A2 • <- Battery R1/R2 devider
+  VFD SI <- • 8   A  A1 • <- OIL Pressure/R4 devider
+            • 9   N  A0 • <- OIL Temp/R3 devider
+            • 10  O Arf •
+            • 11	  3V3 •
+  Button -> • 12 ||| 13 • <- DIMMER
+            └────USB────┘
+ */
 
 /******** TODO **********
-   OLED                  ✓
-   dimm                  ✓
-   switch                ✓
-   VFD needile           ✓
-   VFD bar               ✓
-   Voltmeter             ✓
    Oil pressure          ❏
    Oil temperature       ❏
-   AirFuelRatio sensor   ✓
    EGT                   ❏
-   Brakes temperature    ✓
    ALARM system         ❏/✓
  *************************/
+
+ #include <SPI.h>
+ #include <avr/pgmspace.h>
+ #include <U8glib.h> //platformio lib install "U8glib"
+ #include <Adafruit_ADS1015.h> // platformio lib install "Adafruit ADS1X15"
+ #include <Adafruit_MLX90614.h> // platformio lib install "Adafruit MLX90614 Library"
+ #include <max6675.h> // platformio lib install "MAX6675"
+
+ #include "img.h" // Mode logos
 
 U8GLIB_SSD1306_128X64_2X u8g(U8G_I2C_OPT_NONE);
 Adafruit_ADS1115 ads;
@@ -76,11 +88,9 @@ float BRAKES_TEMP = 0;
      SDA-------------A5
    MAX6675
 */
- int thermoDO  = 4;
- int thermoCS  = 5;
- int thermoCLK = 6;
- int vccPin    = 3;
- int gndPin    = 2;
+ int thermoDO  = 2;
+ int thermoCS  = 3;
+ int thermoCLK = 4;
 
 #define AFR_INPUT 0
 float AFR = 0;
@@ -150,7 +160,7 @@ unsigned long timeOLED=0;
 #define OLED_DELAY 500
 
 // ALARMS
-#define ALARM_PIN 2
+#define ALARM_PIN 5
 
 #define ALARM_EGT 1000          // Exhaust Temtrature too high
 #define ALARM_OIL 0.5           // Oil pressure is too low
