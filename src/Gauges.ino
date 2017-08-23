@@ -10,24 +10,24 @@
    //   Ab0VE TECH - HONDA Prelude Gen4 VFD Gauges controller
  */
 
- /* Controller connections
-            ┌╌╌──╌╌╌╌╌╌╌┐
-            • TX    Vin •
-            • RX  A Gnd •  <- GND
-            • RST R RST •
-     GND -> • GND D  +5 •  <- +5V Reg. LM2596HV
-  MAX DO -> • 2   U  A7 •
-  MAX CS <- • 3   I  A6 •
- MAX CLK <- • 4   N  A5 • -> OLED/ADS/MLX SDA
-   Alarm <- • 5   O  A4 • -> OLED/ADS/MLX SDL
-  VFD LH <- • 6      A3 •
- VFD SCK <- • 7   N  A2 • <- Battery R1/R2 devider
-  VFD SI <- • 8   A  A1 • <- OIL Pressure/R4 devider
-            • 9   N  A0 • <- OIL Temp/R3 devider
-            • 10  O Arf •
-            • 11	  3V3 •
-  Button -> • 12 ||| 13 • <- DIMMER
-            └────USB────┘
+/* Controller connections
+   //            ┌╌╌──╌╌╌╌╌╌╌┐
+   //            • TX    Vin •
+   //            • RX  A Gnd •  <- GND
+   //            • RST R RST •
+   //     GND -> • GND D  +5 •  <- +5V Reg. LM2596HV
+   //  MAX DO -> • 2   U  A7 •
+   //  MAX CS <- • 3   I  A6 •
+   // MAX CLK <- • 4   N  A5 • -> OLED/ADS/MLX SDA
+   //   Alarm <- • 5   O  A4 • -> OLED/ADS/MLX SDL
+   //  VFD LH <- • 6      A3 •
+   // VFD SCK <- • 7   N  A2 • <- Battery R1/R2 devider
+   //  VFD SI <- • 8   A  A1 • <- OIL Pressure/R4 devider
+   //            • 9   N  A0 • <- OIL Temp/R3 devider
+   //            • 10  O Arf •
+   //            • 11	   3V3 •
+   //  Button -> • 12 ||| 13 • <- DIMMER
+   //            └────USB────┘
  */
 
 /******** TODO **********
@@ -48,7 +48,7 @@
 
 U8GLIB_SSD1306_128X64_2X u8g(U8G_I2C_OPT_NONE);
 Adafruit_ADS1115 ads;
-Adafruit_ADS1115 ads1115(0x48);	// construct an ads1115 at address 0x48
+Adafruit_ADS1115 ads1115(0x48); // construct an ads1115 at address 0x48
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 MAX6675 thermocouple;
 
@@ -87,10 +87,10 @@ float BRAKES_TEMP = 0;
      SDL-------------A4
      SDA-------------A5
    MAX6675
-*/
- int thermoDO  = 2;
- int thermoCS  = 3;
- int thermoCLK = 4;
+ */
+int thermoDO  = 2;
+int thermoCS  = 3;
+int thermoCLK = 4;
 
 #define AFR_INPUT 0
 float AFR = 0;
@@ -212,7 +212,7 @@ void setup() {
         delay(1500);
 
 #ifdef DATALOG_ENABLE
-          Serial.println("TIME, OIL_T, OIL_P, VOLT, AFR ,EGT, BRAKES, AMBIENT");
+        Serial.println("TIME, OIL_T, OIL_P, VOLT, AFR ,EGT, BRAKES, AMBIENT");
 #endif
 }
 
@@ -222,50 +222,50 @@ void DrawGauges()
 
         if (time>timeL) // Delay while new LOGO displayed
         {
-          if (time>timeOLED) // Delay for DATA update
-           {
-                timeOLED=time+OLED_DELAY;
-                u8g.firstPage();
-                do
+                if (time>timeOLED) // Delay for DATA update
                 {
-                        u8g.setFont(u8g_font_fub20);
-
-                        if (ALARM_STATUS && ALARM_BLINK)   // INVERT SCREEN ON ALARM
+                        timeOLED=time+OLED_DELAY;
+                        u8g.firstPage();
+                        do
                         {
-                            u8g.drawBox(0, 0, 128, 64);
-                            u8g.setDefaultBackgroundColor();
-                        } else {
-                          u8g.setDefaultForegroundColor();
-                        }
+                                u8g.setFont(u8g_font_fub20);
 
-                        u8g.setPrintPos(0, 20);
-                        // Add extra info to OLED
-                        switch (LOGO_STATUS)
-                        {
-                        case STATE_OIL:
-                                u8g.print(OIL_PRESSURE); u8g.print("bar");
-                                u8g.setPrintPos(0, 60);
-                                u8g.print(int(OIL_TEMP)); u8g.print(char(176)); u8g.print("C");
-                                break;
-                        case STATE_EXHAUST:
-                                u8g.print("Exhausts");
-                                u8g.setPrintPos(0, 60);
-                                u8g.print(int(EGT)); u8g.print(char(176)); u8g.print("C");
-                                break;
-                        case STATE_BRAKES:
-                                u8g.print("Brakes");
-                                u8g.setPrintPos(0, 60);
-                                u8g.print(int(BRAKES_TEMP)); u8g.print(char(176)); u8g.print("C");
-                                break;
-                        case STATE_VOLT:
-                                u8g.print("Battery");
-                                u8g.setPrintPos(0, 60);
-                                u8g.print(VOLTAGE);
-                                u8g.print("V");
-                                break;
-                        }
-                } while( u8g.nextPage() );
-              }
+                                if (ALARM_STATUS && ALARM_BLINK) // INVERT SCREEN ON ALARM
+                                {
+                                        u8g.drawBox(0, 0, 128, 64);
+                                        u8g.setDefaultBackgroundColor();
+                                } else {
+                                        u8g.setDefaultForegroundColor();
+                                }
+
+                                u8g.setPrintPos(0, 20);
+                                // Add extra info to OLED
+                                switch (LOGO_STATUS)
+                                {
+                                case STATE_OIL:
+                                        u8g.print(OIL_PRESSURE); u8g.print("bar");
+                                        u8g.setPrintPos(0, 60);
+                                        u8g.print(int(OIL_TEMP)); u8g.print(char(176)); u8g.print("C");
+                                        break;
+                                case STATE_EXHAUST:
+                                        u8g.print("Exhausts");
+                                        u8g.setPrintPos(0, 60);
+                                        u8g.print(int(EGT)); u8g.print(char(176)); u8g.print("C");
+                                        break;
+                                case STATE_BRAKES:
+                                        u8g.print("Brakes");
+                                        u8g.setPrintPos(0, 60);
+                                        u8g.print(int(BRAKES_TEMP)); u8g.print(char(176)); u8g.print("C");
+                                        break;
+                                case STATE_VOLT:
+                                        u8g.print("Battery");
+                                        u8g.setPrintPos(0, 60);
+                                        u8g.print(VOLTAGE);
+                                        u8g.print("V");
+                                        break;
+                                }
+                        } while( u8g.nextPage() );
+                }
         }
         ALARM_BLINK=!ALARM_BLINK;
 
@@ -373,40 +373,40 @@ void ReadSensors() {
         ALARM_STATUS=false;
         // EGT to High
         if (EGT>ALARM_EGT) {
-          LOGO_STATUS=STATE_EXHAUST;
-          ALARM_STATUS=true;
+                LOGO_STATUS=STATE_EXHAUST;
+                ALARM_STATUS=true;
         }
         // Brakes temprature to high
         if (BRAKES_TEMP>ALARM_BRAKES) {
-          LOGO_STATUS=STATE_BRAKES;
-          ALARM_STATUS=true;
+                LOGO_STATUS=STATE_BRAKES;
+                ALARM_STATUS=true;
         }
         // Overcharge
         if (VOLTAGE>ALARM_BATTERY_HIGH) {
-          LOGO_STATUS=VOLTAGE;
-          ALARM_STATUS=true;
+                LOGO_STATUS=VOLTAGE;
+                ALARM_STATUS=true;
         }
         // No charge
         if ((VOLTAGE<ALARM_BATTERY_LOW) && (OIL_PRESSURE>1.0)) { // while engine running
-          LOGO_STATUS=STATE_VOLT;
-          ALARM_STATUS=true;
+                LOGO_STATUS=STATE_VOLT;
+                ALARM_STATUS=true;
         }
         // High OIL temperature
         if (OIL_TEMP>ALARM_TEMP) {
-          LOGO_STATUS=STATE_OIL;
-          ALARM_STATUS=true;
+                LOGO_STATUS=STATE_OIL;
+                ALARM_STATUS=true;
         }
         // Low OIL pressure
         if ((OIL_PRESSURE<ALARM_OIL) && (VOLTAGE>ALARM_BATTERY_LOW)) { // while engine runnin
-          LOGO_STATUS=STATE_OIL;
-          ALARM_STATUS=true;
+                LOGO_STATUS=STATE_OIL;
+                ALARM_STATUS=true;
         }
 
         if (ALARM_STATUS) {
-            ALARM_BLINK=true;
-            SHOW_LOGO=false;
-            digitalWrite(ALARM_PIN,HIGH);
-          }
+                ALARM_BLINK=true;
+                SHOW_LOGO=false;
+                digitalWrite(ALARM_PIN,HIGH);
+        }
         else digitalWrite(ALARM_PIN,LOW);
 
         // Data logging
@@ -457,10 +457,34 @@ void loop() {
                         if (LOGO_STATUS > MAX_LOGO) LOGO_STATUS = 1;
                         switch (LOGO_STATUS)
                         {
-                        case STATE_OIL:     DRAW_R = true; DRAW_RL = true; DRAW_L = true; TYPE_R = BAR; TYPE_L = BAR; break;
-                        case STATE_EXHAUST: DRAW_R = true; DRAW_RL = true; DRAW_L = true; TYPE_R = BAR; TYPE_L = NEEDLE; break;
-                        case STATE_BRAKES:  DRAW_R = true; DRAW_RL = true; DRAW_L = false; TYPE_R = BAR; TYPE_L = NONE; break;
-                        case STATE_VOLT:    DRAW_R = false; DRAW_RL = false; DRAW_L = true; TYPE_R = NONE; TYPE_L = NEEDLE; break;
+                        case STATE_OIL:
+                                DRAW_R = true;
+                                DRAW_RL = true;
+                                DRAW_L = true;
+                                TYPE_R = BAR;
+                                TYPE_L = BAR;
+                                break;
+                        case STATE_EXHAUST:
+                                DRAW_R = true;
+                                DRAW_RL = true;
+                                DRAW_L = true;
+                                TYPE_R = BAR;
+                                TYPE_L = NEEDLE;
+                                break;
+                        case STATE_BRAKES:
+                                DRAW_R = true;
+                                DRAW_RL = true;
+                                DRAW_L = false;
+                                TYPE_R = BAR;
+                                TYPE_L = NONE;
+                                break;
+                        case STATE_VOLT:
+                                DRAW_R = false;
+                                DRAW_RL = false;
+                                DRAW_L = true;
+                                TYPE_R = NONE;
+                                TYPE_L = NEEDLE;
+                                break;
                         }
                         SHOW_LOGO = true;
                 }
@@ -473,11 +497,20 @@ void loop() {
                 u8g.firstPage();
                 do {
                         switch (LOGO_STATUS) {
-                        case STATE_OIL:     u8g.drawXBMP( 0, 0, 128, 64, oil_LOGO); break;
-                        case STATE_EXHAUST: u8g.drawXBMP( 0, 0, 128, 64, exhaust_LOGO); break;
-                        case STATE_BRAKES:  u8g.drawXBMP( 0, 0, 128, 64, brakes_LOGO); break;
-                        case STATE_VOLT:    u8g.drawXBMP( 0, 0, 128, 64, battery_LOGO); break;
-                        default:         break;
+                        case STATE_OIL:
+                                u8g.drawXBMP( 0, 0, 128, 64, oil_LOGO);
+                                break;
+                        case STATE_EXHAUST:
+                                u8g.drawXBMP( 0, 0, 128, 64, exhaust_LOGO);
+                                break;
+                        case STATE_BRAKES:
+                                u8g.drawXBMP( 0, 0, 128, 64, brakes_LOGO);
+                                break;
+                        case STATE_VOLT:
+                                u8g.drawXBMP( 0, 0, 128, 64, battery_LOGO);
+                                break;
+                        default:
+                                break;
                         }
                 } while( u8g.nextPage() );
                 SHOW_LOGO = false;
