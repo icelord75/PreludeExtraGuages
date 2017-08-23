@@ -140,7 +140,6 @@ byte TARGETPOS_R = 0;
 #define STATE_BRAKES  3
 #define STATE_VOLT    4
 
-boolean ALARM_STATUS = false;
 boolean SHOW_LOGO = true;
 int LOGO_STATUS = STATE_OIL;
 #define MAX_LOGO      4
@@ -168,6 +167,9 @@ unsigned long timeOLED=0;
 #define ALARM_BRAKES 350        // Brakes temperature is too high
 #define ALARM_BATTERY_LOW 12.8  // Alternator output is too low
 #define ALARM_BATTERY_HIGH 15.0 // Alternator output it too high
+
+boolean ALARM_STATUS = false;
+boolean ALARM_BLINK = true;
 
 void setup() {
 // pins config
@@ -218,7 +220,6 @@ void DrawGauges()
 {
         int i;
 
-
         if (time>timeL) // Delay while new LOGO displayed
         {
           if (time>timeOLED) // Delay for DATA update
@@ -228,6 +229,15 @@ void DrawGauges()
                 do
                 {
                         u8g.setFont(u8g_font_fub20);
+
+                        if (ALARM_STATUS && ALARM_BLINK)   // INVERT SCREEN ON ALARM
+                        {
+                            u8g.drawBox(0, 0, 128, 64);
+                            u8g.setDefaultBackgroundColor();
+                        } else {
+                          u8g.setDefaultForegroundColor();
+                        }
+
                         u8g.setPrintPos(0, 20);
                         // Add extra info to OLED
                         switch (LOGO_STATUS)
@@ -257,6 +267,7 @@ void DrawGauges()
                 } while( u8g.nextPage() );
               }
         }
+        ALARM_BLINK=!ALARM_BLINK;
 
         // Process VFD scale position
         switch (LOGO_STATUS)
@@ -372,7 +383,7 @@ void ReadSensors() {
         }
         // Overcharge
         if (VOLTAGE>ALARM_BATTERY_HIGH) {
-          LOGO_STATUS=STATE_BRAKES;
+          LOGO_STATUS=VOLTAGE;
           ALARM_STATUS=true;
         }
         // No charge
@@ -391,8 +402,12 @@ void ReadSensors() {
           ALARM_STATUS=true;
         }
 
-        if (ALARM_STATUS) digitalWrite(ALARM_PIN,HIGH);
-                     else digitalWrite(ALARM_PIN,LOW);
+        if (ALARM_STATUS) {
+            ALARM_BLINK=true;
+            SHOW_LOGO=false;
+            digitalWrite(ALARM_PIN,HIGH);
+          }
+        else digitalWrite(ALARM_PIN,LOW);
 
         // Data logging
         time = millis();
