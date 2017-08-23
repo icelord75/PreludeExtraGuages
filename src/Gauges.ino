@@ -31,11 +31,8 @@
    AirFuelRatio sensor   ✓
    EGT                   ❏
    Brakes temperature    ✓
+   ALARM system         ❏/✓
  *************************/
-
-int thermoDO  = 4;
-int thermoCS  = 5;
-int thermoCLK = 6;
 
 U8GLIB_SSD1306_128X64_2X u8g(U8G_I2C_OPT_NONE);
 Adafruit_ADS1115 ads;
@@ -77,7 +74,14 @@ float BRAKES_TEMP = 0;
    ADS1X15/max6675    arduino
      SDL-------------A4
      SDA-------------A5
- */
+   MAX6675
+*/
+ int thermoDO  = 4;
+ int thermoCS  = 5;
+ int thermoCLK = 6;
+ int vccPin    = 3;
+ int gndPin    = 2;
+
 #define AFR_INPUT 0
 float AFR = 0;
 float EGT = 0;
@@ -126,6 +130,7 @@ byte TARGETPOS_R = 0;
 #define STATE_BRAKES  3
 #define STATE_VOLT    4
 
+boolean ALARM_STATUS = false;
 boolean SHOW_LOGO = true;
 int LOGO_STATUS = STATE_OIL;
 #define MAX_LOGO      4
@@ -144,6 +149,16 @@ unsigned long timeL=0;
 unsigned long timeOLED=0;
 #define OLED_DELAY 500
 
+// ALARMS
+#define ALARM_PIN 2
+
+#define ALARM_EGT 1000          // Exhaust Temtrature too high
+#define ALARM_OIL 0.5           // Oil pressure is too low
+#define ALARM_TEMP 148          // Oil temperature is too high
+#define ALARM_BRAKES 350        // Brakes temperature is too high
+#define ALARM_BATTERY_LOW 12.8  // Alternator output is too low
+#define ALARM_BATTERY_HIGH 15.0 // Alternator output it too high
+
 void setup() {
 // pins config
         pinMode (SI_PIN, OUTPUT);
@@ -156,6 +171,8 @@ void setup() {
 // configure rest pins
         pinMode (BUTTON_PIN, INPUT);
         pinMode (DIMMER_PIN, INPUT);
+        pinMode (ALARM_PIN, OUTPUT);
+        digitalWrite(ALARM_PIN, LOW);
 
 #ifdef DATALOG_ENABLE
         Serial.begin(115200);
@@ -235,7 +252,7 @@ void DrawGauges()
         switch (LOGO_STATUS)
         {
         case STATE_OIL:
-                TARGETPOS_L = 20-int(OIL_PRESSURE*3.33);      /* 0 -  3  - 6  */
+                TARGETPOS_L = 20-int(OIL_PRESSURE*3.33);     /* 0 -   3 - 6   */
                 TARGETPOS_R = 7-int(OIL_TEMP/21.4);          /* 0 - 120 - 240 */
                 break;
         case STATE_EXHAUST:
@@ -262,13 +279,12 @@ void DrawGauges()
         if ( POSITION_R < TARGETPOS_R ) POSITION_R++;
         if ( POSITION_R > TARGETPOS_R ) POSITION_R--;
 
+        // INIT VFD display
         digitalWrite (SI_PIN, LOW);
         digitalWrite (SCK_PIN, HIGH);
         digitalWrite (LH_PIN, LOW);
-        // Walk over gauge indicator positions
-        // 5-24 Fuel (righ - left)
-        // 31-37 Temp (right - left)
 
+        // Walk over gauge indicator positions
         for (i = 0; i <= 43; i++)
         {
                 digitalWrite (SCK_PIN, LOW);
@@ -330,6 +346,43 @@ void ReadSensors() {
         if (BRAKES_TEMP > 380) BRAKES_TEMP=380;
         // Brakes ambient temperature for datalog only
         val=mlx.readAmbientTempC();
+
+        // ALARM SYSTEM
+        // alrms order from lower to  upper priority
+        ALARM_STATUS=false;
+        // EGT to High
+        if (EGT>ALARM_EGT) {
+          LOGO_STATUS=STATE_EXHAUST;
+          ALARM_STATUS=true;
+        }
+        // Brakes temprature to high
+        if (BRAKES_TEMP>ALARM_BRAKES) {
+          LOGO_STATUS=STATE_BRAKES;
+          ALARM_STATUS=true;
+        }
+        // Overcharge
+        if (VOLTAGE>ALARM_BATTERY_HIGH) {
+          LOGO_STATUS=STATE_BRAKES;
+          ALARM_STATUS=true;
+        }
+        // No charge
+        if ((VOLTAGE<ALARM_BATTERY_LOW) && (OIL_PRESSURE>1.0)) { // while engine running
+          LOGO_STATUS=STATE_VOLT;
+          ALARM_STATUS=true;
+        }
+        // High OIL temperature
+        if (OIL_TEMP>ALARM_TEMP) {
+          LOGO_STATUS=STATE_OIL;
+          ALARM_STATUS=true;
+        }
+        // Low OIL pressure
+        if ((OIL_PRESSURE<ALARM_OIL) && (VOLTAGE>ALARM_BATTERY_LOW)) { // while engine runnin
+          LOGO_STATUS=STATE_OIL;
+          ALARM_STATUS=true;
+        }
+
+        if (ALARM_STATUS) digitalWrite(ALARM_PIN,HIGH);
+                     else digitalWrite(ALARM_PIN,LOW);
 
         // Data logging
         time = millis();
