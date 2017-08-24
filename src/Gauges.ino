@@ -25,7 +25,7 @@
    //  VFD SI <- • 8   A  A1 • <- OIL Pressure/R4 devider
    //            • 9   N  A0 • <- OIL Temp/R3 devider
    //            • 10  O Arf •
-   //            • 11	   3V3 •
+   //            • 11    3V3 •
    //  Button -> • 12 ||| 13 • <- DIMMER
    //            └────USB────┘
  */
@@ -179,6 +179,8 @@ void setup() {
 // init VFD
         digitalWrite (SI_PIN, LOW);
         digitalWrite (SCK_PIN, HIGH);
+        digitalWrite (LH_PIN, LOW);
+        digitalWrite (LH_PIN, HIGH);
         digitalWrite (LH_PIN, LOW);
 // configure rest pins
         pinMode (BUTTON_PIN, INPUT);
