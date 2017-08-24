@@ -2,7 +2,7 @@
 
 Secondary VFD dashboard display controller for Honda Prelude IV
 
-##Supported modes:
+## Supported modes:
 
  - Arduino Nano328 controller
  - OLED mode and values display with dimming feature
@@ -12,6 +12,6 @@ Secondary VFD dashboard display controller for Honda Prelude IV
  - Contactless brakes temperature (PIR)
  - Alarm system
 
-##License
+## License
 
 **PreludeExtraGuages** is available under GPL License.
