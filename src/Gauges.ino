@@ -169,7 +169,7 @@ unsigned long timeOLED=0;
 #define ALARM_OIL 0.5           // Oil pressure is too low
 #define ALARM_TEMP 140          // Oil temperature is too high
 #define ALARM_BRAKES 350        // Brakes temperature is too high
-#define ALARM_BATTERY_LOW 12.5  // Alternator output is too low
+#define ALARM_BATTERY_LOW 12.0 // Alternator output is too low
 #define ALARM_BATTERY_HIGH 15.0 // Alternator output it too high
 
 boolean ALARM_STATUS = false;
@@ -393,10 +393,10 @@ void ReadSensors() {
         val /= NUM_SAMPLES;
         OIL_TEMP = R3 * (1024.0 / val - 1);
         OIL_TEMP = OIL_TEMP / THERMISTOR_NOMINAL;         // (R/Ro)
-        OIL_TEMP = log(OIL_TEMP);                        // ln(R/Ro)
+        OIL_TEMP = log(OIL_TEMP);                         // ln(R/Ro)
         OIL_TEMP /= B_COEFFICIENT;                        // 1/B * ln(R/Ro)
         OIL_TEMP += 1.0 / (TEMPERATURE_NOMINAL + 273.15); // + (1/To)
-        OIL_TEMP = 1.0 / OIL_TEMP;                       // Invert
+        OIL_TEMP = 1.0 / OIL_TEMP;                        // Invert
         OIL_TEMP -= 273.15;
         if (OIL_TEMP > 999) OIL_TEMP=999;
 
