@@ -31,10 +31,7 @@
  */
 
 /******** TODO **********
-   Oil pressure          ❏
-   Oil temperature       ❏
    EGT                   ❏
-   ALARM system         ❏/✓
  *************************/
 
  #include <SPI.h>
@@ -62,19 +59,18 @@ MAX6675 thermocouple;
 #define OIL_TEMP_SENSOR     A0
 #define R3 9920.0 // resistance of R3 (10K) in voltage devider
 float OIL_TEMP = 0;
-#define THERMISTORNOMINAL 1400
+#define THERMISTOR_NOMINAL 1400
 // temp. for nominal resistance (almost always 25 C)
-#define TEMPERATURENOMINAL 25
+#define TEMPERATURE_NOMINAL 25
 // The beta coefficient of the thermistor (usually 3000-4000)
-#define BCOEFFICIENT 3950
-#define NUMSAMPLES  5
-
+#define B_COEFFICIENT 3950
+#define SENSORS_DELAY 1
+#define NUM_SAMPLES  5
+uint16_t samples[NUM_SAMPLES];
 
 #define OIL_PRESSURE_SENSOR A1
-#define R4 1000.0 // resistance of R4 (1K) in voltage devider
+#define R4 994.0 // resistance of R4 (1K) in voltage devider
 float OIL_PRESSURE = 0;
-
-uint16_t samples[NUMSAMPLES];
 
 /* VOLTMETER    /        - */
 #define VOLTMETER_SENSOR    A2
@@ -87,7 +83,7 @@ float VOLTAGE = 0;
       SDL-----------A4
       SDA-----------A5
  */
-float BRAKES_TEMP = 0;
+float BRAKES_TEMP =0;
 
 /* O2 LAMBDA   / EXHAUST TEMPERATURE
 
@@ -173,7 +169,7 @@ unsigned long timeOLED=0;
 #define ALARM_OIL 0.5           // Oil pressure is too low
 #define ALARM_TEMP 140          // Oil temperature is too high
 #define ALARM_BRAKES 350        // Brakes temperature is too high
-#define ALARM_BATTERY_LOW 12.8  // Alternator output is too low
+#define ALARM_BATTERY_LOW 12.5  // Alternator output is too low
 #define ALARM_BATTERY_HIGH 15.0 // Alternator output it too high
 
 boolean ALARM_STATUS = false;
@@ -314,7 +310,7 @@ void DrawGauges()
         switch (LOGO_STATUS)
         {
         case STATE_OIL:
-                TARGETPOS_L = 20-int(OIL_PRESSURE*3.33);     /* 0 -   3 - 6   */
+                TARGETPOS_L = 20-int(OIL_PRESSURE*2);     /* 0 -   5 - 10   */
                 TARGETPOS_R = 8;                            /* NONE SHOW */
                 if (OIL_TEMP<40) TARGETPOS_R=8;
                 else if (OIL_TEMP<80) TARGETPOS_R=7;
@@ -387,34 +383,46 @@ void ReadSensors() {
 
         // Oil temperature with NTC thermocouple
         // take N samples in a row, with a slight delay
-        for (i=0; i< NUMSAMPLES; i++) {
+        for (i=0; i< NUM_SAMPLES; i++) {
                 samples[i] = analogRead(OIL_TEMP_SENSOR);
-                delay(5);
+delay(SENSORS_DELAY);
         }
         val = 0;
-        for (i=0; i< NUMSAMPLES; i++)
+        for (i=0; i< NUM_SAMPLES; i++)
                 val += samples[i];
-        val /= NUMSAMPLES;
+        val /= NUM_SAMPLES;
         OIL_TEMP = R3 * (1024.0 / val - 1);
-        OIL_TEMP = OIL_TEMP / THERMISTORNOMINAL;    // (R/Ro)
-        OIL_TEMP = log(OIL_TEMP);                 // ln(R/Ro)
-        OIL_TEMP /= BCOEFFICIENT;                  // 1/B * ln(R/Ro)
-        OIL_TEMP += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
-        OIL_TEMP = 1.0 / OIL_TEMP;                // Invert
+        OIL_TEMP = OIL_TEMP / THERMISTOR_NOMINAL;         // (R/Ro)
+        OIL_TEMP = log(OIL_TEMP);                        // ln(R/Ro)
+        OIL_TEMP /= B_COEFFICIENT;                        // 1/B * ln(R/Ro)
+        OIL_TEMP += 1.0 / (TEMPERATURE_NOMINAL + 273.15); // + (1/To)
+        OIL_TEMP = 1.0 / OIL_TEMP;                       // Invert
         OIL_TEMP -= 273.15;
         if (OIL_TEMP > 999) OIL_TEMP=999;
 
         // Oil pressure
-        val = analogRead(OIL_PRESSURE_SENSOR);
-
-        val = val * (val/1023.0) / 5;
-        OIL_PRESSURE = ((2.1271 * val) + 5.1075 ) * val - 0.2561;
-        if (OIL_PRESSURE > 6) OIL_PRESSURE=6;
+        for (i=0; i< NUM_SAMPLES; i++) {
+                samples[i] = analogRead(OIL_PRESSURE_SENSOR);
+delay(SENSORS_DELAY);
+        }
+        val = 0;
+        for (i=0; i< NUM_SAMPLES; i++)
+                val += samples[i];
+        val /= NUM_SAMPLES;
+        int vTimesTen=map(val,10,184,0,100); // linear 1
+        OIL_PRESSURE = vTimesTen/10.0;
 
         // Voltmeter
 //        val = ads.readADC_SingleEnded(VOLTMETER_SENSOR);
-        val = analogRead(VOLTMETER_SENSOR);
-        vout = (val * 5.0) / 1024.0;
+for (i=0; i< NUM_SAMPLES; i++) {
+        samples[i] = analogRead(VOLTMETER_SENSOR);
+        delay(SENSORS_DELAY);
+}
+        val = 0;
+        for (i=0; i< NUM_SAMPLES; i++)
+              val += samples[i];
+        val /= NUM_SAMPLES;
+        vout = ((val) * 5.0) / 1023.0;
         VOLTAGE = vout / (R2 / (R1 + R2));
 
         // AirFuelRatio

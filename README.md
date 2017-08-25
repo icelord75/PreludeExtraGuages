@@ -16,4 +16,4 @@ Secondary VFD dashboard display controller for Honda Prelude IV
 
 **PreludeExtraGuages** is available under GPL License.
 
-[![PreludeExtraGuages](https://img.youtube.com/vi/3Ldmpw8SXaU/0.jpg)](https://www.youtube.com/watch?v=3Ldmpw8SXaU)
+[![PreludeExtraGuages](https://img.youtube.com/vi/6HGEkpkcAlo/0.jpg)](https://www.youtube.com/watch?v=6HGEkpkcAlo)
