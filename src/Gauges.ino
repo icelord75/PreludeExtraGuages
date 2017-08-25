@@ -11,7 +11,7 @@
  */
 
 /* Controller connections
-   //            ┌╌╌╌╌╌╌┐
+   //            +-----------+
    //            • TX    Vin •
    //            • RX  A Gnd •  <- GND
    //            • RST R RST •
@@ -27,7 +27,7 @@
    //            • 10  O Arf •
    //            • 11    3V3 •
    //  Button -> • 12 ||| 13 • <- DIMMER
-   //            └────USB────┘
+   //            +-----------+
  */
 
 /******** TODO **********
@@ -229,37 +229,37 @@ void setup() {
 }
 
 void LogoSetup() {
-  switch (LOGO_STATUS)
-  {
-  case STATE_OIL:
-          DRAW_R = true;
-          DRAW_RL = true;
-          DRAW_L = true;
-          TYPE_R = BAR;
-          TYPE_L = BAR;
-          break;
-  case STATE_EXHAUST:
-          DRAW_R = true;
-          DRAW_RL = true;
-          DRAW_L = true;
-          TYPE_R = BAR;
-          TYPE_L = NEEDLE;
-          break;
-  case STATE_BRAKES:
-          DRAW_R = true;
-          DRAW_RL = true;
-          DRAW_L = false;
-          TYPE_R = BAR;
-          TYPE_L = NONE;
-          break;
-  case STATE_VOLT:
-          DRAW_R = false;
-          DRAW_RL = false;
-          DRAW_L = true;
-          TYPE_R = NONE;
-          TYPE_L = NEEDLE;
-          break;
-  }
+        switch (LOGO_STATUS)
+        {
+        case STATE_OIL:
+                DRAW_R = true;
+                DRAW_RL = true;
+                DRAW_L = true;
+                TYPE_R = BAR;
+                TYPE_L = BAR;
+                break;
+        case STATE_EXHAUST:
+                DRAW_R = true;
+                DRAW_RL = true;
+                DRAW_L = true;
+                TYPE_R = BAR;
+                TYPE_L = NEEDLE;
+                break;
+        case STATE_BRAKES:
+                DRAW_R = true;
+                DRAW_RL = true;
+                DRAW_L = false;
+                TYPE_R = BAR;
+                TYPE_L = NONE;
+                break;
+        case STATE_VOLT:
+                DRAW_R = false;
+                DRAW_RL = false;
+                DRAW_L = true;
+                TYPE_R = NONE;
+                TYPE_L = NEEDLE;
+                break;
+        }
 }
 
 void DrawGauges()
@@ -269,12 +269,12 @@ void DrawGauges()
         {
                 if (time>timeOLED) // Delay for DATA update
                 {
-                  u8g.firstPage();
+                        u8g.firstPage();
                         timeOLED=time+OLED_DELAY;
                         do
                         {
-                               u8g.setDefaultForegroundColor();
-                               if (ALARM_STATUS && ALARM_BLINK) // INVERT SCREEN ON ALARM
+                                u8g.setDefaultForegroundColor();
+                                if (ALARM_STATUS && ALARM_BLINK) // INVERT SCREEN ON ALARM
                                 {
                                         u8g.drawBox(0, 0, 128, 64);
                                         u8g.setDefaultBackgroundColor();
@@ -386,23 +386,23 @@ void ReadSensors() {
         float vout;
 
         // Oil temperature with NTC thermocouple
-       // take N samples in a row, with a slight delay
-       for (i=0; i< NUMSAMPLES; i++) {
-         samples[i] = analogRead(OIL_TEMP_SENSOR);
-         delay(5);
-       }
-       val = 0;
-       for (i=0; i< NUMSAMPLES; i++)
-           val += samples[i];
-       val /= NUMSAMPLES;
-       OIL_TEMP = R3 * (1024.0 / val - 1);
-       OIL_TEMP = OIL_TEMP / THERMISTORNOMINAL;     // (R/Ro)
-       OIL_TEMP = log(OIL_TEMP);                  // ln(R/Ro)
-       OIL_TEMP /= BCOEFFICIENT;                   // 1/B * ln(R/Ro)
-       OIL_TEMP += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
-       OIL_TEMP = 1.0 / OIL_TEMP;                 // Invert
-       OIL_TEMP -= 273.15;
-      if (OIL_TEMP > 999) OIL_TEMP=999;
+        // take N samples in a row, with a slight delay
+        for (i=0; i< NUMSAMPLES; i++) {
+                samples[i] = analogRead(OIL_TEMP_SENSOR);
+                delay(5);
+        }
+        val = 0;
+        for (i=0; i< NUMSAMPLES; i++)
+                val += samples[i];
+        val /= NUMSAMPLES;
+        OIL_TEMP = R3 * (1024.0 / val - 1);
+        OIL_TEMP = OIL_TEMP / THERMISTORNOMINAL;    // (R/Ro)
+        OIL_TEMP = log(OIL_TEMP);                 // ln(R/Ro)
+        OIL_TEMP /= BCOEFFICIENT;                  // 1/B * ln(R/Ro)
+        OIL_TEMP += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
+        OIL_TEMP = 1.0 / OIL_TEMP;                // Invert
+        OIL_TEMP -= 273.15;
+        if (OIL_TEMP > 999) OIL_TEMP=999;
 
         // Oil pressure
         val = analogRead(OIL_PRESSURE_SENSOR);
