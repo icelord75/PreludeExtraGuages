@@ -11,7 +11,7 @@
  */
 
 /* Controller connections
-   //            ┌╌╌──╌╌╌╌╌╌╌┐
+   //            ┌╌╌╌╌╌╌┐
    //            • TX    Vin •
    //            • RX  A Gnd •  <- GND
    //            • RST R RST •
@@ -60,13 +60,21 @@ MAX6675 thermocouple;
 
 /* OIL TRESSURE / OIL TEMPERATURE */
 #define OIL_TEMP_SENSOR     A0
-#define R3 1000.0 // resistance of R3 (1K) in voltage devider
+#define R3 9920.0 // resistance of R3 (10K) in voltage devider
 float OIL_TEMP = 0;
+#define THERMISTORNOMINAL 1400
+// temp. for nominal resistance (almost always 25 C)
+#define TEMPERATURENOMINAL 25
+// The beta coefficient of the thermistor (usually 3000-4000)
+#define BCOEFFICIENT 3950
+#define NUMSAMPLES  5
+
 
 #define OIL_PRESSURE_SENSOR A1
 #define R4 1000.0 // resistance of R4 (1K) in voltage devider
 float OIL_PRESSURE = 0;
 
+uint16_t samples[NUMSAMPLES];
 
 /* VOLTMETER    /        - */
 #define VOLTMETER_SENSOR    A2
@@ -163,13 +171,13 @@ unsigned long timeOLED=0;
 
 #define ALARM_EGT 1000          // Exhaust Temtrature too high
 #define ALARM_OIL 0.5           // Oil pressure is too low
-#define ALARM_TEMP 148          // Oil temperature is too high
+#define ALARM_TEMP 140          // Oil temperature is too high
 #define ALARM_BRAKES 350        // Brakes temperature is too high
 #define ALARM_BATTERY_LOW 12.8  // Alternator output is too low
 #define ALARM_BATTERY_HIGH 15.0 // Alternator output it too high
 
 boolean ALARM_STATUS = false;
-boolean ALARM_BLINK = true;
+boolean ALARM_BLINK;
 
 void setup() {
 // pins config
@@ -183,6 +191,8 @@ void setup() {
         digitalWrite (LH_PIN, HIGH);
         digitalWrite (LH_PIN, LOW);
 // configure rest pins
+        pinMode (OIL_PRESSURE_SENSOR, INPUT);
+        pinMode(OIL_TEMP_SENSOR, INPUT);
         pinMode (BUTTON_PIN, INPUT);
         pinMode (DIMMER_PIN, INPUT);
         pinMode (ALARM_PIN, OUTPUT);
@@ -218,29 +228,59 @@ void setup() {
 #endif
 }
 
+void LogoSetup() {
+  switch (LOGO_STATUS)
+  {
+  case STATE_OIL:
+          DRAW_R = true;
+          DRAW_RL = true;
+          DRAW_L = true;
+          TYPE_R = BAR;
+          TYPE_L = BAR;
+          break;
+  case STATE_EXHAUST:
+          DRAW_R = true;
+          DRAW_RL = true;
+          DRAW_L = true;
+          TYPE_R = BAR;
+          TYPE_L = NEEDLE;
+          break;
+  case STATE_BRAKES:
+          DRAW_R = true;
+          DRAW_RL = true;
+          DRAW_L = false;
+          TYPE_R = BAR;
+          TYPE_L = NONE;
+          break;
+  case STATE_VOLT:
+          DRAW_R = false;
+          DRAW_RL = false;
+          DRAW_L = true;
+          TYPE_R = NONE;
+          TYPE_L = NEEDLE;
+          break;
+  }
+}
+
 void DrawGauges()
 {
         int i;
-
         if (time>timeL) // Delay while new LOGO displayed
         {
                 if (time>timeOLED) // Delay for DATA update
                 {
+                  u8g.firstPage();
                         timeOLED=time+OLED_DELAY;
-                        u8g.firstPage();
                         do
                         {
-                                u8g.setFont(u8g_font_fub20);
-
-                                if (ALARM_STATUS && ALARM_BLINK) // INVERT SCREEN ON ALARM
+                               u8g.setDefaultForegroundColor();
+                               if (ALARM_STATUS && ALARM_BLINK) // INVERT SCREEN ON ALARM
                                 {
                                         u8g.drawBox(0, 0, 128, 64);
                                         u8g.setDefaultBackgroundColor();
-                                } else {
-                                        u8g.setDefaultForegroundColor();
                                 }
-
-                                u8g.setPrintPos(0, 20);
+                                u8g.setFont(u8g_font_fub20);
+                                u8g.setPrintPos(0, 23);
                                 // Add extra info to OLED
                                 switch (LOGO_STATUS)
                                 {
@@ -267,16 +307,23 @@ void DrawGauges()
                                         break;
                                 }
                         } while( u8g.nextPage() );
+                        ALARM_BLINK=!ALARM_BLINK;
                 }
         }
-        ALARM_BLINK=!ALARM_BLINK;
-
         // Process VFD scale position
         switch (LOGO_STATUS)
         {
         case STATE_OIL:
                 TARGETPOS_L = 20-int(OIL_PRESSURE*3.33);     /* 0 -   3 - 6   */
-                TARGETPOS_R = 7-int(OIL_TEMP/21.4);          /* 0 - 120 - 240 */
+                TARGETPOS_R = 8;                            /* NONE SHOW */
+                if (OIL_TEMP<40) TARGETPOS_R=8;
+                else if (OIL_TEMP<80) TARGETPOS_R=7;
+                else if (OIL_TEMP<110) TARGETPOS_R=6;       /* CENTER */
+                else if (OIL_TEMP<120) TARGETPOS_R=5;
+                else if (OIL_TEMP<130) TARGETPOS_R=4;
+                else if (OIL_TEMP<140) TARGETPOS_R=3;
+                else if (OIL_TEMP<150) TARGETPOS_R=2;
+                else TARGETPOS_R=1;                         /* RED */
                 break;
         case STATE_EXHAUST:
                 TARGETPOS_L = 20-int(AFR*20);                /* 0 - 0.5 - 1   */
@@ -294,7 +341,7 @@ void DrawGauges()
         if ( TARGETPOS_L < 1 ) TARGETPOS_L = 1;
         if ( TARGETPOS_L > 20) TARGETPOS_L = 20;
         if ( TARGETPOS_R < 1 ) TARGETPOS_R = 1;
-        if ( TARGETPOS_R > 7 ) TARGETPOS_R = 7;
+        if ( TARGETPOS_R > 8 ) TARGETPOS_R = 8;
 
         // Arrage positions
         if ( POSITION_L < TARGETPOS_L ) POSITION_L++;
@@ -334,19 +381,32 @@ void DrawGauges()
 }
 
 void ReadSensors() {
-        int val;
+        uint16_t val;
+        uint8_t i;
         float vout;
+
         // Oil temperature with NTC thermocouple
-//        val = ads.readADC_SingleEnded(OIL_TEMP_SENSOR);
-        val = analogRead(OIL_TEMP_SENSOR);
-        val=((1024 * val / R3 ) - val);
-        val = log(val);
-        OIL_TEMP = 1 / (0.0016 + (0.0002 * val) + (1.0813481443911684e-7 * val * val * val));
-        if (OIL_TEMP > 150) OIL_TEMP=150;
+       // take N samples in a row, with a slight delay
+       for (i=0; i< NUMSAMPLES; i++) {
+         samples[i] = analogRead(OIL_TEMP_SENSOR);
+         delay(5);
+       }
+       val = 0;
+       for (i=0; i< NUMSAMPLES; i++)
+           val += samples[i];
+       val /= NUMSAMPLES;
+       OIL_TEMP = R3 * (1024.0 / val - 1);
+       OIL_TEMP = OIL_TEMP / THERMISTORNOMINAL;     // (R/Ro)
+       OIL_TEMP = log(OIL_TEMP);                  // ln(R/Ro)
+       OIL_TEMP /= BCOEFFICIENT;                   // 1/B * ln(R/Ro)
+       OIL_TEMP += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
+       OIL_TEMP = 1.0 / OIL_TEMP;                 // Invert
+       OIL_TEMP -= 273.15;
+      if (OIL_TEMP > 999) OIL_TEMP=999;
 
         // Oil pressure
-//        val = ads.readADC_SingleEnded(OIL_PRESSURE_SENSOR);
         val = analogRead(OIL_PRESSURE_SENSOR);
+
         val = val * (val/1023.0) / 5;
         OIL_PRESSURE = ((2.1271 * val) + 5.1075 ) * val - 0.2561;
         if (OIL_PRESSURE > 6) OIL_PRESSURE=6;
@@ -405,8 +465,9 @@ void ReadSensors() {
         }
 
         if (ALARM_STATUS) {
-                ALARM_BLINK=true;
+//                ALARM_BLINK=true;
                 SHOW_LOGO=false;
+                LogoSetup();
                 digitalWrite(ALARM_PIN,HIGH);
         }
         else digitalWrite(ALARM_PIN,LOW);
@@ -457,37 +518,7 @@ void loop() {
                 {
                         LOGO_STATUS++;
                         if (LOGO_STATUS > MAX_LOGO) LOGO_STATUS = 1;
-                        switch (LOGO_STATUS)
-                        {
-                        case STATE_OIL:
-                                DRAW_R = true;
-                                DRAW_RL = true;
-                                DRAW_L = true;
-                                TYPE_R = BAR;
-                                TYPE_L = BAR;
-                                break;
-                        case STATE_EXHAUST:
-                                DRAW_R = true;
-                                DRAW_RL = true;
-                                DRAW_L = true;
-                                TYPE_R = BAR;
-                                TYPE_L = NEEDLE;
-                                break;
-                        case STATE_BRAKES:
-                                DRAW_R = true;
-                                DRAW_RL = true;
-                                DRAW_L = false;
-                                TYPE_R = BAR;
-                                TYPE_L = NONE;
-                                break;
-                        case STATE_VOLT:
-                                DRAW_R = false;
-                                DRAW_RL = false;
-                                DRAW_L = true;
-                                TYPE_R = NONE;
-                                TYPE_L = NEEDLE;
-                                break;
-                        }
+                        LogoSetup();
                         SHOW_LOGO = true;
                 }
         }
