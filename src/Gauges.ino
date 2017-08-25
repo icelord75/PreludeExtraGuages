@@ -83,7 +83,7 @@ float VOLTAGE = 0;
       SDL-----------A4
       SDA-----------A5
  */
-float BRAKES_TEMP =0;
+float BRAKES_TEMP = 0;
 
 /* O2 LAMBDA   / EXHAUST TEMPERATURE
 
@@ -385,7 +385,7 @@ void ReadSensors() {
         // take N samples in a row, with a slight delay
         for (i=0; i< NUM_SAMPLES; i++) {
                 samples[i] = analogRead(OIL_TEMP_SENSOR);
-delay(SENSORS_DELAY);
+                delay(SENSORS_DELAY);
         }
         val = 0;
         for (i=0; i< NUM_SAMPLES; i++)
@@ -403,7 +403,7 @@ delay(SENSORS_DELAY);
         // Oil pressure
         for (i=0; i< NUM_SAMPLES; i++) {
                 samples[i] = analogRead(OIL_PRESSURE_SENSOR);
-delay(SENSORS_DELAY);
+                delay(SENSORS_DELAY);
         }
         val = 0;
         for (i=0; i< NUM_SAMPLES; i++)
@@ -414,13 +414,13 @@ delay(SENSORS_DELAY);
 
         // Voltmeter
 //        val = ads.readADC_SingleEnded(VOLTMETER_SENSOR);
-for (i=0; i< NUM_SAMPLES; i++) {
-        samples[i] = analogRead(VOLTMETER_SENSOR);
-        delay(SENSORS_DELAY);
-}
+        for (i=0; i< NUM_SAMPLES; i++) {
+                samples[i] = analogRead(VOLTMETER_SENSOR);
+                delay(SENSORS_DELAY);
+        }
         val = 0;
         for (i=0; i< NUM_SAMPLES; i++)
-              val += samples[i];
+                val += samples[i];
         val /= NUM_SAMPLES;
         vout = ((val) * 5.0) / 1023.0;
         VOLTAGE = vout / (R2 / (R1 + R2));
