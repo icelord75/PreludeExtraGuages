@@ -272,9 +272,10 @@ void DrawGauges()
                                 u8g.setDefaultForegroundColor();
                                 if (ALARM_STATUS && ALARM_BLINK) // INVERT SCREEN ON ALARM
                                 {
+                                        digitalWrite(ALARM_PIN,HIGH);
                                         u8g.drawBox(0, 0, 128, 64);
                                         u8g.setDefaultBackgroundColor();
-                                }
+                                } else digitalWrite(ALARM_PIN,LOW);
                                 u8g.setFont(u8g_font_fub20);
                                 u8g.setPrintPos(0, 23);
                                 // Add extra info to OLED
@@ -476,7 +477,6 @@ void ReadSensors() {
 //                ALARM_BLINK=true;
                 SHOW_LOGO=false;
                 LogoSetup();
-                digitalWrite(ALARM_PIN,HIGH);
         }
         else digitalWrite(ALARM_PIN,LOW);
 
