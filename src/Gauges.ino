@@ -18,8 +18,8 @@
    //     GND -> • GND D  +5 •  <- +5V Reg. LM2596HV
    //  MAX DO -> • 2   U  A7 •
    //  MAX CS <- • 3   I  A6 •
-   // MAX CLK <- • 4   N  A5 • -> OLED/ADS/MLX SDA
-   //   Alarm <- • 5   O  A4 • -> OLED/ADS/MLX SDL
+   // MAX CLK <- • 4   N  A5 • -> OLED/ADS/MLX SCL
+   //   Alarm <- • 5   O  A4 • -> OLED/ADS/MLX SDA
    //  VFD LH <- • 6      A3 •
    // VFD SCK <- • 7   N  A2 • <- Battery R1/R2 devider
    //  VFD SI <- • 8   A  A1 • <- OIL Pressure/R4 devider
