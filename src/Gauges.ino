@@ -64,7 +64,8 @@ float OIL_TEMP = 0;
 #define TEMPERATURE_NOMINAL 25
 // The beta coefficient of the thermistor (usually 3000-4000)
 #define B_COEFFICIENT 3950
-#define SENSORS_DELAY 1
+
+#define SENSORS_DELAY 2
 #define NUM_SAMPLES  5
 uint16_t samples[NUM_SAMPLES];
 
