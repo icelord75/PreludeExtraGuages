@@ -34,14 +34,15 @@
    EGT                   ❏
  *************************/
 
- #include <SPI.h>
- #include <avr/pgmspace.h>
- #include <U8glib.h> //platformio lib install "U8glib"
- #include <Adafruit_ADS1015.h> // platformio lib install "Adafruit ADS1X15"
- #include <Adafruit_MLX90614.h> // platformio lib install "Adafruit MLX90614 Library"
- #include <max6675.h> // platformio lib install "MAX6675"
+#include <Arduino.h>
+#include <SPI.h>
+#include <avr/pgmspace.h>
+#include <U8glib.h> //platformio lib install "U8glib"
+#include <Adafruit_ADS1015.h> // platformio lib install "Adafruit ADS1X15"
+#include <Adafruit_MLX90614.h> // platformio lib install "Adafruit MLX90614 Library"
+#include <max6675.h> // platformio lib install "MAX6675"
 
- #include "img.h" // Mode logos
+#include "img.h" // Mode logos
 
 U8GLIB_SSD1306_128X64_2X u8g(U8G_I2C_OPT_NONE);
 Adafruit_ADS1115 ads;
@@ -54,7 +55,6 @@ MAX6675 thermocouple;
 //
 // SENSORS
 //
-
 /* OIL TRESSURE / OIL TEMPERATURE */
 #define OIL_TEMP_SENSOR     A0
 #define R3 9920.0 // resistance of R3 (10K) in voltage devider
@@ -190,8 +190,8 @@ void setup() {
 // configure rest pins
         pinMode (OIL_PRESSURE_SENSOR, INPUT);
         pinMode(OIL_TEMP_SENSOR, INPUT);
-        pinMode (BUTTON_PIN, INPUT);
-        pinMode (DIMMER_PIN, INPUT);
+        pinMode (BUTTON_PIN, INPUT_PULLUP);
+        pinMode (DIMMER_PIN, INPUT_PULLUP);
         pinMode (ALARM_PIN, OUTPUT);
         digitalWrite(ALARM_PIN, LOW);
 
@@ -433,6 +433,7 @@ void ReadSensors() {
 
         // Exhaust Gas Temtrature
         EGT = thermocouple.readCelsius();
+        if ((EGT<0) || (EGT>1000)) EGT=0;
 
         // Brakes temperature
         BRAKES_TEMP=mlx.readObjectTempC();
@@ -565,5 +566,4 @@ void loop() {
 #ifdef VISUAL_DELAY
         delay(VISUAL_DELAY);
 #endif
-
 }
