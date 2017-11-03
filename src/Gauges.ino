@@ -75,8 +75,8 @@ float OIL_PRESSURE = 0;
 
 /* VOLTMETER    /        - */
 #define VOLTMETER_SENSOR    A2
-#define R1 47000.0 // resistance of R1 (47K ) in voltage divider
-#define R2 9950.0  // resistance of R2 (10K) in voltage divider
+#define R1 47000.0 // exact resistance of R1 (47K ) in voltage divider
+#define R2 9950.0  // exact resistance of R2 (10K) in voltage divider
 float VOLTAGE = 0;
 
 /*    -         / BRAKES TEMPERATURE
@@ -177,7 +177,7 @@ boolean ALARM_STATUS = false;
 boolean ALARM_BLINK;
 
 void setup() {
-// pins config
+// VFD pins config
         pinMode (SI_PIN, OUTPUT);
         pinMode (SCK_PIN, OUTPUT);
         pinMode (LH_PIN, OUTPUT);
@@ -187,6 +187,7 @@ void setup() {
         digitalWrite (LH_PIN, LOW);
         digitalWrite (LH_PIN, HIGH);
         digitalWrite (LH_PIN, LOW);
+
 // configure rest pins
         pinMode (OIL_PRESSURE_SENSOR, INPUT);
         pinMode(OIL_TEMP_SENSOR, INPUT);
@@ -208,7 +209,7 @@ void setup() {
                 u8g.drawXBMP( 0, 0, 128, 64, Prelude_LOGO);
         } while( u8g.nextPage() );
 
-// AD initn
+// AD init
         ads.begin();
         ads.setGain(GAIN_TWO); // ADS1115: +2.048V/0.0625mV
 
@@ -218,7 +219,7 @@ void setup() {
 // PIR brake rotor sensor
         mlx.begin();
 
-        delay(1500);
+        delay(1500); // Prelude logo delay
 
 #ifdef DATALOG_ENABLE
         Serial.println("TIME, OIL_T, OIL_P, VOLT, AFR ,EGT, BRAKES, AMBIENT");
@@ -415,7 +416,6 @@ void ReadSensors() {
         OIL_PRESSURE = vTimesTen/10.0;
 
         // Voltmeter
-//        val = ads.readADC_SingleEnded(VOLTMETER_SENSOR);
         for (i=0; i< NUM_SAMPLES; i++) {
                 samples[i] = analogRead(VOLTMETER_SENSOR);
                 delay(SENSORS_DELAY);
@@ -437,7 +437,7 @@ void ReadSensors() {
 
         // Brakes temperature
         BRAKES_TEMP=mlx.readObjectTempC();
-        if (BRAKES_TEMP > 380) BRAKES_TEMP=380;
+        if (BRAKES_TEMP > 380) BRAKES_TEMP=0;
         // Brakes ambient temperature for datalog only
         val=mlx.readAmbientTempC();
 
