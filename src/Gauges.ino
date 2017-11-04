@@ -30,10 +30,6 @@
    //            +-----------+
  */
 
-/******** TODO **********
-   EGT                   ❏
- *************************/
-
 #include <Arduino.h>
 #include <SPI.h>
 #include <avr/pgmspace.h>
@@ -41,7 +37,6 @@
 #include <Adafruit_ADS1015.h> // platformio lib install "Adafruit ADS1X15"
 #include <Adafruit_MLX90614.h> // platformio lib install "Adafruit MLX90614 Library"
 #include <max6675.h> // platformio lib install "MAX6675"
-
 #include "img.h" // Mode logos
 
 U8GLIB_SSD1306_128X64_2X u8g(U8G_I2C_OPT_NONE);
@@ -50,14 +45,12 @@ Adafruit_ADS1115 ads1115(0x48); // construct an ads1115 at address 0x48
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 MAX6675 thermocouple;
 
-#define VISUAL_DELAY  1 // Refresh delay
-
 //
 // SENSORS
 //
 /* OIL TRESSURE / OIL TEMPERATURE */
 #define OIL_TEMP_SENSOR     A0
-#define R3 9920.0 // resistance of R3 (10K) in voltage devider
+#define R3 9920.0 // exact resistance of R3 (10K) in voltage devider
 float OIL_TEMP = 0;
 #define THERMISTOR_NOMINAL 1400
 // temp. for nominal resistance (almost always 25 C)
@@ -70,7 +63,7 @@ float OIL_TEMP = 0;
 uint16_t samples[NUM_SAMPLES];
 
 #define OIL_PRESSURE_SENSOR A1
-#define R4 994.0 // resistance of R4 (1K) in voltage devider
+#define R4 994.0 // exact resistance of R4 (1K) in voltage devider
 float OIL_PRESSURE = 0;
 
 /* VOLTMETER    /        - */
@@ -166,15 +159,17 @@ unsigned long timeOLED=0;
 // ALARMS
 #define ALARM_PIN 5
 
-#define ALARM_EGT 1000          // Exhaust Temtrature too high
-#define ALARM_OIL 0.5           // Oil pressure is too low
-#define ALARM_TEMP 140          // Oil temperature is too high
-#define ALARM_BRAKES 350        // Brakes temperature is too high
-#define ALARM_BATTERY_LOW 12.0 // Alternator output is too low
-#define ALARM_BATTERY_HIGH 15.0 // Alternator output it too high
+#define ALARM_EGT 1000           // Exhaust Temtrature too high
+#define ALARM_OIL 0.5            // Oil pressure is too low
+#define ALARM_TEMP 140           // Oil temperature is too high
+#define ALARM_BRAKES 350         // Brakes temperature is too high
+#define ALARM_BATTERY_LOW 12.0   // Alternator output is too low
+#define ALARM_BATTERY_HIGH 15.0  // Alternator output it too high
+#define ALARM_BETTERY_DELAY 2000 // 2.0sec delay for engine start
 
 boolean ALARM_STATUS = false;
 boolean ALARM_BLINK;
+uint32_t ALARM_TIME=0;
 
 void setup() {
 // VFD pins config
@@ -332,7 +327,7 @@ void DrawGauges()
                 TARGETPOS_R = 7-int(BRAKES_TEMP/54);         /* 0 - 130 - 300 */
                 break;
         case STATE_VOLT:
-                TARGETPOS_L = 20-int( VOLTAGE - 8)*2;        /* 0 - 14  - 28  */
+                TARGETPOS_L = 20-int(VOLTAGE - 8)*2;         /* 8 - 14  - 18  */
                 break;
         }
 
@@ -373,10 +368,10 @@ void DrawGauges()
                 digitalWrite (SCK_PIN, HIGH);
                 digitalWrite (SI_PIN, LOW);
         }
+
         // LATCH AND HOLD
         digitalWrite (LH_PIN, HIGH);
         digitalWrite (LH_PIN, LOW);
-        // DONE
 }
 
 void ReadSensors() {
@@ -457,12 +452,16 @@ void ReadSensors() {
         // Overcharge
         if (VOLTAGE>ALARM_BATTERY_HIGH) {
                 LOGO_STATUS=VOLTAGE;
-                ALARM_STATUS=true;
+                if (ALARM_TIME==0) ALARM_TIME=millis();
+                if (millis()>=ALARM_TIME+ALARM_BETTERY_DELAY)
+                        ALARM_STATUS=true;
         }
         // No charge
         if ((VOLTAGE<ALARM_BATTERY_LOW) && (OIL_PRESSURE>1.0)) { // while engine running
                 LOGO_STATUS=STATE_VOLT;
-                ALARM_STATUS=true;
+                if (ALARM_TIME==0) ALARM_TIME=millis();
+                if (millis()>=ALARM_TIME+ALARM_BETTERY_DELAY)
+                        ALARM_STATUS=true;
         }
         // High OIL temperature
         if (OIL_TEMP>ALARM_TEMP) {
@@ -476,7 +475,6 @@ void ReadSensors() {
         }
 
         if (ALARM_STATUS) {
-//                ALARM_BLINK=true;
                 SHOW_LOGO=false;
                 LogoSetup();
         }
@@ -562,8 +560,4 @@ void loop() {
 
         //Draw VFD gauges
         DrawGauges();
-
-#ifdef VISUAL_DELAY
-        delay(VISUAL_DELAY);
-#endif
 }
