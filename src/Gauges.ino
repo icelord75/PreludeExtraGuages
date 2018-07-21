@@ -110,6 +110,7 @@ int DIMMER_STATE = 0;
 int DIMMER_PREVSTATE = 0;
 
 int BUTTON_PIN = 12; // BUTTON to Ground
+int _STATE = 0;
 int BUTTON_STATE = 0;
 int BUTTON_PREVSTATE = 0;
 
@@ -162,7 +163,7 @@ unsigned long timeOLED=0;
 #define ALARM_EGT 1000           // Exhaust Temtrature too high
 #define ALARM_OIL 0.5            // Oil pressure is too low
 #define ALARM_TEMP 140           // Oil temperature is too high
-#define ALARM_BRAKES 350         // Brakes temperature is too high
+#define ALARM_BRAKES 351         // Brakes temperature is too high
 #define ALARM_BATTERY_LOW 12.0   // Alternator output is too low
 #define ALARM_BATTERY_HIGH 15.0  // Alternator output it too high
 #define ALARM_BETTERY_DELAY 2000 // 2.0sec delay for engine start
@@ -520,7 +521,7 @@ void loop() {
 
         // Click button operation
         BUTTON_STATE = digitalRead(BUTTON_PIN);
-        if (BUTTON_STATE == HIGH)
+        if (BUTTON_STATE == LOW)
         {
                 if (BUTTON_PREVSTATE != BUTTON_STATE) /* JUST PRESSED */
                 {
