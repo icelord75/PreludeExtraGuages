@@ -173,16 +173,27 @@ boolean ALARM_BLINK;
 uint32_t ALARM_TIME=0;
 
 void setup() {
+  int i;
 // VFD pins config
         pinMode (SI_PIN, OUTPUT);
         pinMode (SCK_PIN, OUTPUT);
         pinMode (LH_PIN, OUTPUT);
+
 // init VFD
         digitalWrite (SI_PIN, LOW);
         digitalWrite (SCK_PIN, HIGH);
         digitalWrite (LH_PIN, LOW);
+//clear VFD
+        digitalWrite (SI_PIN, LOW);
+        for (i = 0; i <= 43; i++)
+        {
+          digitalWrite (SCK_PIN, LOW);
+          digitalWrite (SCK_PIN, HIGH);
+        }
+// latch VFD
         digitalWrite (LH_PIN, HIGH);
         digitalWrite (LH_PIN, LOW);
+
 
 // configure rest pins
         pinMode (OIL_PRESSURE_SENSOR, INPUT);
@@ -440,6 +451,7 @@ void ReadSensors() {
         // ALARM SYSTEM
         // alrms order from lower to  upper priority
         ALARM_STATUS=false;
+
         // EGT to High
         if (EGT>ALARM_EGT) {
                 LOGO_STATUS=STATE_EXHAUST;
@@ -480,6 +492,7 @@ void ReadSensors() {
                 LogoSetup();
         }
         else digitalWrite(ALARM_PIN,LOW);
+
 
         // Data logging
         time = millis();
