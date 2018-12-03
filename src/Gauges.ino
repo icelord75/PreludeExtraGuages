@@ -164,7 +164,7 @@ unsigned long timeOLED=0;
 #define ALARM_OIL 0.5            // Oil pressure is too low
 #define ALARM_TEMP 140           // Oil temperature is too high
 #define ALARM_BRAKES 351         // Brakes temperature is too high
-#define ALARM_BATTERY_LOW 12.0   // Alternator output is too low
+#define ALARM_BATTERY_LOW 12.5   // Alternator output is too low
 #define ALARM_BATTERY_HIGH 15.0  // Alternator output it too high
 #define ALARM_BETTERY_DELAY 2000 // 2.0sec delay for engine start
 
@@ -296,7 +296,7 @@ void DrawGauges()
                                         u8g.print(int(OIL_TEMP)); u8g.print(char(176)); u8g.print("C");
                                         break;
                                 case STATE_EXHAUST:
-                                        u8g.print("Exhausts");
+                                        u8g.print("AFR:");u8g.print(float(AFR));
                                         u8g.setPrintPos(0, 60);
                                         u8g.print(int(EGT)); u8g.print(char(176)); u8g.print("C");
                                         break;
