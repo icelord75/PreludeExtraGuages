@@ -168,6 +168,7 @@ unsigned long timeOLED = 0;
 #define ALARM_BATTERY_LOW 12.5   // Alternator output is too low
 #define ALARM_BATTERY_HIGH 15.0  // Alternator output it too high
 #define ALARM_BETTERY_DELAY 2000 // 2.0sec delay for engine start
+#define WORK_TEMP 60             // Monitor pressure only at work temperatures
 
 boolean ALARM_STATUS = false;
 boolean ALARM_BLINK;
@@ -541,7 +542,7 @@ void ReadSensors()
                 ALARM_STATUS = true;
         }
         // Low OIL pressure
-        if ((OIL_PRESSURE < ALARM_OIL) && (VOLTAGE > ALARM_BATTERY_LOW))
+        if ((OIL_PRESSURE < ALARM_OIL) && (VOLTAGE > ALARM_BATTERY_LOW) && OIL_TEMP > WORK_TEMP)
         { // while engine runnin
                 LOGO_STATUS = STATE_OIL;
                 ALARM_STATUS = true;
