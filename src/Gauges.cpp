@@ -39,9 +39,11 @@
 #include <max6675.h>           // platformio lib install "MAX6675"
 #include "img.h"               // Mode logos
 
+#define DATALOG_ENABLE        // SERIAL DATALOGING
+
 U8GLIB_SSD1306_128X64_2X u8g(U8G_I2C_OPT_NONE);
 Adafruit_ADS1X15 ads;
-//Adafruit_ADS1X15 ads1115(0x48); // construct an ads1115 at address 0x48
+// Adafruit_ADS1X15 ads1115(0x48); // construct an ads1115 at address 0x48
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 MAX6675 thermocouple;
 
@@ -56,14 +58,20 @@ float OIL_TEMP = 0;
 // temp. for nominal resistance (almost always 25 C)
 #define TEMPERATURE_NOMINAL 25
 // The beta coefficient of the thermistor (usually 3000-4000)
-#define B_COEFFICIENT 3950
+#define B_COEFFICIENT 3500
 
-#define SENSORS_DELAY 2
-#define NUM_SAMPLES 5
-uint16_t samples[NUM_SAMPLES];
+#define SENSORS_DELAY 0
+#define NUM_SAMPLES 1 // ALL REAL TIME
+//uint16_t samples[NUM_SAMPLES];
 
 #define OIL_PRESSURE_SENSOR A1
-#define R4 994.0 // exact resistance of R4 (1K) in voltage devider
+#define R4 199.0                                 // exact resistance of R4 (1K) in voltage devider
+#define MIN_OHM_PRESS 10                        // 10ohm - 0 BAR
+#define MAX_OHM_PRESS 180                       // 180phm - 10 BAR
+#define OIL_SENSOR_TYPE 10.0                     // 10 BAR
+// #define OIL_SENSOR_TYPE 20.0                 // 5 BAR
+#define MIN_VOLT_PRESS 1023 * (MIN_OHM_PRESS / (MIN_OHM_PRESS + R4))   // 5v=1023 on voltage devider
+#define MAX_VOLT_PRESS 1023 * (MAX_OHM_PRESS / (MAX_OHM_PRESS + R4)) // 5v=1023 on voltage devider
 float OIL_PRESSURE = 0;
 
 /* VOLTMETER    /        - */
@@ -80,7 +88,6 @@ float VOLTAGE = 0;
 float BRAKES_TEMP = 0;
 
 /* O2 LAMBDA   / EXHAUST TEMPERATURE
-
    ADS1X15/max6675    arduino
      SDL-------------A4
      SDA-------------A5
@@ -145,34 +152,37 @@ int LOGO_STATUS = STATE_OIL;
 
 unsigned long time = 0;
 
-//#define DATALOG_ENABLE        // SERIAL DATALOGING
-
 unsigned long timeP = 0;
 #define LOG_DELAY 1000
 
 // Delay for data update on OLED after new logo shown
 unsigned long timeL = 0;
-#define LOGO_DELAY 3000
+#define LOGO_DELAY 2000
 
 // OLED data update delay
 unsigned long timeOLED = 0;
-#define OLED_DELAY 500
+#define OLED_DELAY 100
 
 // ALARMS
 #define ALARM_PIN 5
-
 #define ALARM_EGT 1000           // Exhaust Temtrature too high
-#define ALARM_OIL 0.5            // Oil pressure is too low
-#define ALARM_TEMP 140           // Oil temperature is too high
+#define ALARM_OIL 1              // Oil pressure is too low
+#define ALARM_OIL_HIGH 7         // Oil pressure is too low
+#define ALARM_TEMP 120           // Oil temperature is too high
 #define ALARM_BRAKES 351         // Brakes temperature is too high
 #define ALARM_BATTERY_LOW 12.5   // Alternator output is too low
 #define ALARM_BATTERY_HIGH 15.0  // Alternator output it too high
 #define ALARM_BETTERY_DELAY 2000 // 2.0sec delay for engine start
-#define WORK_TEMP 60             // Monitor pressure only at work temperatures
+#define WORK_TEMP 40             // Monitor pressure only at work temperatures
 
 boolean ALARM_STATUS = false;
 boolean ALARM_BLINK;
 uint32_t ALARM_TIME = 0;
+uint16_t val_T=0;
+uint16_t val_P=0;
+uint16_t val_V=0;
+
+
 
 void setup()
 {
@@ -186,7 +196,7 @@ void setup()
         digitalWrite(SI_PIN, LOW);
         digitalWrite(SCK_PIN, HIGH);
         digitalWrite(LH_PIN, LOW);
-        //clear VFD
+        // clear VFD
         digitalWrite(SI_PIN, LOW);
         for (i = 0; i <= 43; i++)
         {
@@ -425,13 +435,13 @@ void DrawGauges()
 
 void ReadSensors()
 {
-        uint16_t val;
+//        uint16_t val;
         uint8_t i;
         float vout;
 
         // Oil temperature with NTC thermocouple
         // take N samples in a row, with a slight delay
-        for (i = 0; i < NUM_SAMPLES; i++)
+ /*       for (i = 0; i < NUM_SAMPLES; i++)
         {
                 samples[i] = analogRead(OIL_TEMP_SENSOR);
                 delay(SENSORS_DELAY);
@@ -439,8 +449,11 @@ void ReadSensors()
         val = 0;
         for (i = 0; i < NUM_SAMPLES; i++)
                 val += samples[i];
-        val /= NUM_SAMPLES;
-        OIL_TEMP = R3 * (1024.0 / val - 1);
+        val /= NUM_SAMPLES;*/
+        for (i=0; i<NUM_SAMPLES;i++)
+                val_T+=(analogRead(OIL_TEMP_SENSOR) - val_T) * 0.1;
+
+        OIL_TEMP = R3 * (1024.0 / val_T - 1);
         OIL_TEMP = OIL_TEMP / THERMISTOR_NOMINAL;         // (R/Ro)
         OIL_TEMP = log(OIL_TEMP);                         // ln(R/Ro)
         OIL_TEMP /= B_COEFFICIENT;                        // 1/B * ln(R/Ro)
@@ -448,41 +461,39 @@ void ReadSensors()
         OIL_TEMP = 1.0 / OIL_TEMP;                        // Invert
         OIL_TEMP -= 273.15;
         if (OIL_TEMP < 0)
-                OIL_TEMP= 0 ;
-        if (OIL_TEMP > 999)
-                OIL_TEMP = 999;
+                OIL_TEMP = 0;
+        if (OIL_TEMP > 200)
+                OIL_TEMP = 200;
 
         // Oil pressure
+ /*       val = 0;
         for (i = 0; i < NUM_SAMPLES; i++)
         {
                 samples[i] = analogRead(OIL_PRESSURE_SENSOR);
-#ifdef DATALOG_ENABLE
-               Serial.print("-");
-                Serial.print(samples[i]);
-#endif
                 delay(SENSORS_DELAY);
         }
-        val = 0;
         for (i = 0; i < NUM_SAMPLES; i++)
                 val += samples[i];
-        val /= NUM_SAMPLES;
-        int vTimesTen = map(val, 10, 184, 0, 100); // linear 1
-        OIL_PRESSURE = vTimesTen / 10.0;
-
-//        if (OIL_PRESSURE > 20)
-  //              OIL_PRESSURE = 20;
+        val /= NUM_SAMPLES;*/
+        for (i=0; i<NUM_SAMPLES;i++)
+                val_P=(analogRead(OIL_PRESSURE) - val_P) * 0.1;
+        
+        OIL_PRESSURE = map(val_P, MIN_VOLT_PRESS, MAX_VOLT_PRESS, 0, 100) / OIL_SENSOR_TYPE; // 20-180ohm to 0-100% devide by Sensor type (5/10 -> 20/10)
+        if (OIL_PRESSURE < 0) OIL_PRESSURE = 0;
 
         // Voltmeter
+/*      val = 0;
         for (i = 0; i < NUM_SAMPLES; i++)
         {
                 samples[i] = analogRead(VOLTMETER_SENSOR);
                 delay(SENSORS_DELAY);
         }
-        val = 0;
         for (i = 0; i < NUM_SAMPLES; i++)
                 val += samples[i];
-        val /= NUM_SAMPLES;
-        vout = ((val)*5.0) / 1023.0;
+        val /= NUM_SAMPLES;*/
+        for (i=0; i<NUM_SAMPLES;i++)
+                val_V=(analogRead(VOLTMETER_SENSOR) - val_V) * 0.1; 
+        vout = ((val_V)*5.0) / 1023.0;
         VOLTAGE = vout / (R2 / (R1 + R2));
 
         // AirFuelRatio
@@ -499,7 +510,7 @@ void ReadSensors()
         if (BRAKES_TEMP > 380)
                 BRAKES_TEMP = 0;
         // Brakes ambient temperature for datalog only
-        val = mlx.readAmbientTempC();
+        //val = mlx.readAmbientTempC();
 
         // ALARM SYSTEM
         // alrms order from lower to  upper priority
@@ -511,12 +522,14 @@ void ReadSensors()
                 LOGO_STATUS = STATE_EXHAUST;
                 ALARM_STATUS = true;
         }
+        
         // Brakes temprature to high
         if (BRAKES_TEMP > ALARM_BRAKES)
         {
                 LOGO_STATUS = STATE_BRAKES;
                 ALARM_STATUS = true;
         }
+        
         // Overcharge
         if (VOLTAGE > ALARM_BATTERY_HIGH)
         {
@@ -526,6 +539,7 @@ void ReadSensors()
                 if (millis() >= ALARM_TIME + ALARM_BETTERY_DELAY)
                         ALARM_STATUS = true;
         }
+        
         // No charge
         if ((VOLTAGE < ALARM_BATTERY_LOW) && (OIL_PRESSURE > 1.0))
         { // while engine running
@@ -535,14 +549,16 @@ void ReadSensors()
                 if (millis() >= ALARM_TIME + ALARM_BETTERY_DELAY)
                         ALARM_STATUS = true;
         }
+        
         // High OIL temperature
         if (OIL_TEMP > ALARM_TEMP)
         {
                 LOGO_STATUS = STATE_OIL;
                 ALARM_STATUS = true;
         }
+        
         // Low OIL pressure
-        if ((OIL_PRESSURE < ALARM_OIL) && (VOLTAGE > ALARM_BATTERY_LOW) && OIL_TEMP > WORK_TEMP)
+        if (((OIL_PRESSURE < ALARM_OIL) || (OIL_PRESSURE > ALARM_OIL_HIGH)) && (VOLTAGE > ALARM_BATTERY_LOW) && OIL_TEMP > WORK_TEMP)
         { // while engine runnin
                 LOGO_STATUS = STATE_OIL;
                 ALARM_STATUS = true;
@@ -575,7 +591,6 @@ void ReadSensors()
                 Serial.print(", ");
                 Serial.print(BRAKES_TEMP);
                 Serial.print(", ");
-                Serial.print(val);
                 Serial.print("\n");
                 timeP = time + LOG_DELAY;
         }
@@ -617,7 +632,7 @@ void loop()
         }
         BUTTON_PREVSTATE = BUTTON_STATE;
 
-        //Change logo at OLED display
+        // Change logo at OLED display
         if (SHOW_LOGO)
         {
                 u8g.firstPage();
@@ -645,6 +660,6 @@ void loop()
                 timeL = time + LOGO_DELAY;
         }
 
-        //Draw VFD gauges
+        // Draw VFD gauges
         DrawGauges();
 }
