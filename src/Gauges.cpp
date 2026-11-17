@@ -178,11 +178,24 @@ unsigned long timeOLED = 0;
 boolean ALARM_STATUS = false;
 boolean ALARM_BLINK;
 uint32_t ALARM_TIME = 0;
-uint16_t val_T=0;
-uint16_t val_P=0;
-uint16_t val_V=0;
+float val_T = 0.0f;
+float val_P = 0.0f;
+float val_V = 0.0f;
 
+static inline float clampf(float value, float minValue, float maxValue)
+{
+        if (value < minValue)
+                return minValue;
+        if (value > maxValue)
+                return maxValue;
+        return value;
+}
 
+static inline float readFilteredAnalog(uint8_t pin, float &filteredValue)
+{
+        filteredValue += (analogRead(pin) - filteredValue) * 0.1f;
+        return filteredValue;
+}
 
 void setup()
 {
@@ -435,70 +448,31 @@ void DrawGauges()
 
 void ReadSensors()
 {
-//        uint16_t val;
-        uint8_t i;
         float vout;
 
-        // Oil temperature with NTC thermocouple
-        // take N samples in a row, with a slight delay
- /*       for (i = 0; i < NUM_SAMPLES; i++)
-        {
-                samples[i] = analogRead(OIL_TEMP_SENSOR);
-                delay(SENSORS_DELAY);
-        }
-        val = 0;
-        for (i = 0; i < NUM_SAMPLES; i++)
-                val += samples[i];
-        val /= NUM_SAMPLES;*/
-        for (i=0; i<NUM_SAMPLES;i++)
-                val_T+=(analogRead(OIL_TEMP_SENSOR) - val_T) * 0.1;
+        readFilteredAnalog(OIL_TEMP_SENSOR, val_T);
 
-        OIL_TEMP = R3 * (1024.0 / val_T - 1);
-        OIL_TEMP = OIL_TEMP / THERMISTOR_NOMINAL;         // (R/Ro)
-        OIL_TEMP = log(OIL_TEMP);                         // ln(R/Ro)
-        OIL_TEMP /= B_COEFFICIENT;                        // 1/B * ln(R/Ro)
-        OIL_TEMP += 1.0 / (TEMPERATURE_NOMINAL + 273.15); // + (1/To)
-        OIL_TEMP = 1.0 / OIL_TEMP;                        // Invert
-        OIL_TEMP -= 273.15;
-        if (OIL_TEMP < 0)
-                OIL_TEMP = 0;
-        if (OIL_TEMP > 200)
-                OIL_TEMP = 200;
+        OIL_TEMP = R3 * (1024.0f / val_T - 1.0f);
+        OIL_TEMP = OIL_TEMP / THERMISTOR_NOMINAL;          // (R/Ro)
+        OIL_TEMP = log(OIL_TEMP);                          // ln(R/Ro)
+        OIL_TEMP /= B_COEFFICIENT;                         // 1/B * ln(R/Ro)
+        OIL_TEMP += 1.0f / (TEMPERATURE_NOMINAL + 273.15f); // + (1/To)
+        OIL_TEMP = 1.0f / OIL_TEMP;                       // Invert
+        OIL_TEMP -= 273.15f;
+        OIL_TEMP = clampf(OIL_TEMP, 0.0f, 200.0f);
 
-        // Oil pressure
- /*       val = 0;
-        for (i = 0; i < NUM_SAMPLES; i++)
-        {
-                samples[i] = analogRead(OIL_PRESSURE_SENSOR);
-                delay(SENSORS_DELAY);
-        }
-        for (i = 0; i < NUM_SAMPLES; i++)
-                val += samples[i];
-        val /= NUM_SAMPLES;*/
-        for (i=0; i<NUM_SAMPLES;i++)
-                val_P=(analogRead(OIL_PRESSURE) - val_P) * 0.1;
-        
-        OIL_PRESSURE = map(val_P, MIN_VOLT_PRESS, MAX_VOLT_PRESS, 0, 100) / OIL_SENSOR_TYPE; // 20-180ohm to 0-100% devide by Sensor type (5/10 -> 20/10)
-        if (OIL_PRESSURE < 0) OIL_PRESSURE = 0;
+        readFilteredAnalog(OIL_PRESSURE_SENSOR, val_P);
 
-        // Voltmeter
-/*      val = 0;
-        for (i = 0; i < NUM_SAMPLES; i++)
-        {
-                samples[i] = analogRead(VOLTMETER_SENSOR);
-                delay(SENSORS_DELAY);
-        }
-        for (i = 0; i < NUM_SAMPLES; i++)
-                val += samples[i];
-        val /= NUM_SAMPLES;*/
-        for (i=0; i<NUM_SAMPLES;i++)
-                val_V=(analogRead(VOLTMETER_SENSOR) - val_V) * 0.1; 
-        vout = ((val_V)*5.0) / 1023.0;
+        float oilPressureRatio = (val_P - MIN_VOLT_PRESS) / (MAX_VOLT_PRESS - MIN_VOLT_PRESS);
+        OIL_PRESSURE = clampf(oilPressureRatio, 0.0f, 1.0f) * OIL_SENSOR_TYPE;
+
+        readFilteredAnalog(VOLTMETER_SENSOR, val_V);
+        vout = (val_V * 5.0f) / 1023.0f;
         VOLTAGE = vout / (R2 / (R1 + R2));
 
         // AirFuelRatio
         //ADS1115: +2.048V/0.0625mV
-        AFR = (ads.readADC_SingleEnded(AFR_INPUT) * 0.0625) / 1000;
+        AFR = (ads.readADC_SingleEnded(AFR_INPUT) * 0.0625f) / 1000.0f;
 
         // Exhaust Gas Temtrature
         EGT = thermocouple.readCelsius();
@@ -522,26 +496,26 @@ void ReadSensors()
                 LOGO_STATUS = STATE_EXHAUST;
                 ALARM_STATUS = true;
         }
-        
+
         // Brakes temprature to high
         if (BRAKES_TEMP > ALARM_BRAKES)
         {
                 LOGO_STATUS = STATE_BRAKES;
                 ALARM_STATUS = true;
         }
-        
+
         // Overcharge
         if (VOLTAGE > ALARM_BATTERY_HIGH)
         {
-                LOGO_STATUS = VOLTAGE;
+                LOGO_STATUS = STATE_VOLT;
                 if (ALARM_TIME == 0)
                         ALARM_TIME = millis();
                 if (millis() >= ALARM_TIME + ALARM_BETTERY_DELAY)
                         ALARM_STATUS = true;
         }
-        
+
         // No charge
-        if ((VOLTAGE < ALARM_BATTERY_LOW) && (OIL_PRESSURE > 1.0))
+        if ((VOLTAGE < ALARM_BATTERY_LOW) && (OIL_PRESSURE > 1.0f))
         { // while engine running
                 LOGO_STATUS = STATE_VOLT;
                 if (ALARM_TIME == 0)
@@ -549,14 +523,14 @@ void ReadSensors()
                 if (millis() >= ALARM_TIME + ALARM_BETTERY_DELAY)
                         ALARM_STATUS = true;
         }
-        
+
         // High OIL temperature
         if (OIL_TEMP > ALARM_TEMP)
         {
                 LOGO_STATUS = STATE_OIL;
                 ALARM_STATUS = true;
         }
-        
+
         // Low OIL pressure
         if (((OIL_PRESSURE < ALARM_OIL) || (OIL_PRESSURE > ALARM_OIL_HIGH)) && (VOLTAGE > ALARM_BATTERY_LOW) && OIL_TEMP > WORK_TEMP)
         { // while engine runnin
