@@ -54,6 +54,14 @@ and drives an output when a value leaves its safe range.
 Press the button to cycle through the modes. After a mode change the OLED shows
 the mode logo for 2 seconds, then switches to live values.
 
+Temperatures (oil, EGT, brakes) and oil pressure are shown with **inertia**. Every
+250 ms the displayed value covers 30% of the remaining gap to the measured value.
+A sudden change therefore glides smoothly: the display reaches about 75% of a
+jump in 1 second and about 95% in 2 seconds. The VFD gauges move one segment
+every 40 ms, so a needle sweeps to a new position instead of jumping there. This
+also applies when you switch modes. Battery voltage and AFR are shown without the
+250 ms smoothing.
+
 | | Mode | Left VFD gauge | Right VFD gauge | OLED |
 |---|---|---|---|---|
 | <img src="docs/img/oil.png" width="128"> | **Oil** | Bar: oil pressure, 0–10 bar (2 segments per bar) | Bar: oil temperature, stepped (see below) | `x.xxbar` / `xx°C` |
@@ -95,6 +103,10 @@ are active at once, the last one decides which mode is shown.
 
 The 2-second delay on the battery alarms covers engine cranking. The oil pressure
 alarm is only active once the oil is warm, so a cold start does not trigger it.
+
+Alarms always check the measured values, not the smoothed display values. An
+alarm starts right away, even while the number on the screen is still gliding
+toward the new value.
 
 ## Hardware
 
@@ -247,6 +259,9 @@ exponential low-pass filter (α = 0.1).
 |---|---|---|
 | `OLED_DELAY` | 100 | OLED refresh period, ms (also the alarm flash rate) |
 | `LOGO_DELAY` | 2000 | How long the mode logo stays on screen, ms |
+| `DISPLAY_DELAY` | 250 | Update period of the smoothed temperature and pressure values, ms |
+| `DISPLAY_INERTIA` | 0.3 | Part of the gap closed per update (0–1). A smaller value is smoother and slower. |
+| `GAUGE_STEP_DELAY` | 40 | Time for a VFD gauge to move one segment, ms |
 | `EGT_DELAY` | 250 | MAX6675 polling period, ms (one conversion takes ≤ 220 ms) |
 | `LOG_DELAY` | 1000 | Serial log period, ms |
 

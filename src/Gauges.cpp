@@ -167,6 +167,25 @@ unsigned long timeL = 0;
 unsigned long timeOLED = 0;
 #define OLED_DELAY 100
 
+// DISPLAY INERTIA
+// Temperatures and oil pressure are shown through smoothed "display" values.
+// Every DISPLAY_DELAY ms each display value closes DISPLAY_INERTIA of the gap
+// to the measured value, so a sudden jump is shown as a smooth glide
+// (with 0.3 about 95% of a step is reached in ~2 seconds).
+// Alarms always use the measured values, without this delay.
+#define DISPLAY_DELAY 250     // ms between display value updates
+#define DISPLAY_INERTIA 0.3f  // 0..1: smaller = smoother and slower
+unsigned long timeDisplay = 0;
+float DISP_OIL_TEMP = 0;
+float DISP_OIL_PRESSURE = 0;
+float DISP_EGT = 0;
+float DISP_BRAKES_TEMP = 0;
+
+// VFD gauges move one segment per GAUGE_STEP_DELAY ms
+// (a full 20-segment sweep takes 20 * 40 = 800 ms).
+#define GAUGE_STEP_DELAY 40
+unsigned long timeGauge = 0;
+
 // ALARMS
 #define ALARM_PIN 5
 #define ALARM_EGT 1000           // Exhaust Temtrature too high
@@ -298,6 +317,24 @@ void LogoSetup()
         }
 }
 
+// Move a display value a part of the way towards the measured value
+static inline void approach(float &displayValue, float measuredValue)
+{
+        displayValue += (measuredValue - displayValue) * DISPLAY_INERTIA;
+}
+
+// Update smoothed display values at a fixed rate
+void UpdateDisplayValues()
+{
+        if (time - timeDisplay < DISPLAY_DELAY)
+                return;
+        timeDisplay = time;
+        approach(DISP_OIL_TEMP, OIL_TEMP);
+        approach(DISP_OIL_PRESSURE, OIL_PRESSURE);
+        approach(DISP_EGT, EGT);
+        approach(DISP_BRAKES_TEMP, BRAKES_TEMP);
+}
+
 // fub20r has no degree sign (char 176), so draw it as a small ring
 // right after the current print position, then print "C".
 void printDegreesC()
@@ -336,23 +373,23 @@ void DrawGauges()
                                 switch (LOGO_STATUS)
                                 {
                                 case STATE_OIL:
-                                        u8g.print(OIL_PRESSURE);
+                                        u8g.print(DISP_OIL_PRESSURE);
                                         u8g.print("bar");
                                         u8g.setPrintPos(0, 60);
-                                        u8g.print(int(OIL_TEMP));
+                                        u8g.print(int(DISP_OIL_TEMP));
                                         printDegreesC();
                                         break;
                                 case STATE_EXHAUST:
                                         u8g.print("AFR:");
                                         u8g.print(float(AFR));
                                         u8g.setPrintPos(0, 60);
-                                        u8g.print(int(EGT));
+                                        u8g.print(int(DISP_EGT));
                                         printDegreesC();
                                         break;
                                 case STATE_BRAKES:
                                         u8g.print("Brakes");
                                         u8g.setPrintPos(0, 60);
-                                        u8g.print(int(BRAKES_TEMP));
+                                        u8g.print(int(DISP_BRAKES_TEMP));
                                         printDegreesC();
                                         break;
                                 case STATE_VOLT:
@@ -374,30 +411,30 @@ void DrawGauges()
         switch (LOGO_STATUS)
         {
         case STATE_OIL:
-                targetL = 20 - int(OIL_PRESSURE * 2); /* 0 -   5 - 10   */
-                if (OIL_TEMP < 40)
+                targetL = 20 - int(DISP_OIL_PRESSURE * 2); /* 0 -   5 - 10   */
+                if (DISP_OIL_TEMP < 40)
                         targetR = 8; /* NONE SHOW */
-                else if (OIL_TEMP < 80)
+                else if (DISP_OIL_TEMP < 80)
                         targetR = 7;
-                else if (OIL_TEMP < 110)
+                else if (DISP_OIL_TEMP < 110)
                         targetR = 6; /* CENTER */
-                else if (OIL_TEMP < 120)
+                else if (DISP_OIL_TEMP < 120)
                         targetR = 5;
-                else if (OIL_TEMP < 130)
+                else if (DISP_OIL_TEMP < 130)
                         targetR = 4;
-                else if (OIL_TEMP < 140)
+                else if (DISP_OIL_TEMP < 140)
                         targetR = 3;
-                else if (OIL_TEMP < 150)
+                else if (DISP_OIL_TEMP < 150)
                         targetR = 2;
                 else
                         targetR = 1; /* RED */
                 break;
         case STATE_EXHAUST:
                 targetL = 20 - int(AFR * 20); /* 0 - 0.5 - 1   */
-                targetR = 7 - int(EGT / 100); /* 0 - 300 - 700 */
+                targetR = 7 - int(DISP_EGT / 100); /* 0 - 300 - 700 */
                 break;
         case STATE_BRAKES:
-                targetR = 7 - int(BRAKES_TEMP / 54); /* 0 - 130 - 300 */
+                targetR = 7 - int(DISP_BRAKES_TEMP / 54); /* 0 - 130 - 300 */
                 break;
         case STATE_VOLT:
                 targetL = 20 - int(VOLTAGE - 8) * 2; /* 8 - 14  - 18  */
@@ -408,15 +445,19 @@ void DrawGauges()
         TARGETPOS_L = constrain(targetL, 1, 20);
         TARGETPOS_R = constrain(targetR, 1, 8);
 
-        // Arrage positions
-        if (POSITION_L < TARGETPOS_L)
-                POSITION_L++;
-        if (POSITION_L > TARGETPOS_L)
-                POSITION_L--;
-        if (POSITION_R < TARGETPOS_R)
-                POSITION_R++;
-        if (POSITION_R > TARGETPOS_R)
-                POSITION_R--;
+        // Move gauges towards target positions, one segment per GAUGE_STEP_DELAY
+        if (time - timeGauge >= GAUGE_STEP_DELAY)
+        {
+                timeGauge = time;
+                if (POSITION_L < TARGETPOS_L)
+                        POSITION_L++;
+                if (POSITION_L > TARGETPOS_L)
+                        POSITION_L--;
+                if (POSITION_R < TARGETPOS_R)
+                        POSITION_R++;
+                if (POSITION_R > TARGETPOS_R)
+                        POSITION_R--;
+        }
 
         // INIT VFD display
         digitalWrite(SI_PIN, LOW);
@@ -642,6 +683,9 @@ void loop()
                 SHOW_LOGO = false;
                 timeL = time + LOGO_DELAY;
         }
+
+        // Smooth temperatures and pressure for display
+        UpdateDisplayValues();
 
         // Draw VFD gauges
         DrawGauges();
