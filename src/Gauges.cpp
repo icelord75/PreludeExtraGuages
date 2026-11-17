@@ -60,9 +60,6 @@ float OIL_TEMP = 0;
 // The beta coefficient of the thermistor (usually 3000-4000)
 #define B_COEFFICIENT 3500
 
-#define SENSORS_DELAY 0
-#define NUM_SAMPLES 1 // ALL REAL TIME
-//uint16_t samples[NUM_SAMPLES];
 
 #define OIL_PRESSURE_SENSOR A1
 #define R4 199.0                                 // exact resistance of R4 (1K) in voltage devider
@@ -82,16 +79,19 @@ float VOLTAGE = 0;
 
 /*    -         / BRAKES TEMPERATURE
    MLX90614
-      SDL-----------A4
-      SDA-----------A5
+      SDA-----------A4
+      SCL-----------A5
  */
 float BRAKES_TEMP = 0;
 
 /* O2 LAMBDA   / EXHAUST TEMPERATURE
-   ADS1X15/max6675    arduino
-     SDL-------------A4
-     SDA-------------A5
-   MAX6675
+   ADS1X15            arduino
+     SDA-------------A4
+     SCL-------------A5
+   MAX6675 (software SPI)
+     DO--------------2
+     CS--------------3
+     CLK-------------4
  */
 int thermoDO = 2;
 int thermoCS = 3;
@@ -100,6 +100,8 @@ int thermoCLK = 4;
 #define AFR_INPUT 0
 float AFR = 0;
 float EGT = 0;
+unsigned long timeEGT = 0;
+#define EGT_DELAY 250 // MAX6675 conversion time is up to 220ms
 
 /*
      VFD Contoller
@@ -112,7 +114,9 @@ int SI_PIN = 8;  // Blue
 int SCK_PIN = 7; // Green
 int LH_PIN = 6;  // Gray
 
-int DIMMER_PIN = 13; // Dimer input - High +12V!
+// Dimer input - High +12V! Must go through a divider/optocoupler to 5V.
+// NOTE: D13 has the onboard LED, so INPUT_PULLUP is weak here - use an external pull-up.
+int DIMMER_PIN = 13;
 int DIMMER_STATE = 0;
 int DIMMER_PREVSTATE = 0;
 
@@ -123,8 +127,8 @@ int BUTTON_PREVSTATE = 0;
 
 /*
      OLED DISPLAY  arduino
-     SDL-------------A4
-     SDA-------------A5
+     SDA-------------A4
+     SCL-------------A5
  */
 #define NONE 0
 #define BAR 1
@@ -354,49 +358,46 @@ void DrawGauges()
                 }
         }
         // Process VFD scale position
+        // Compute in signed int and clamp before storing into byte,
+        // otherwise negative values wrap to ~250 and show the gauge as empty.
+        int targetL = TARGETPOS_L;
+        int targetR = TARGETPOS_R;
         switch (LOGO_STATUS)
         {
         case STATE_OIL:
-                TARGETPOS_L = 20 - int(OIL_PRESSURE * 2); /* 0 -   5 - 10   */
-                TARGETPOS_R = 8;                          /* NONE SHOW */
+                targetL = 20 - int(OIL_PRESSURE * 2); /* 0 -   5 - 10   */
                 if (OIL_TEMP < 40)
-                        TARGETPOS_R = 8;
+                        targetR = 8; /* NONE SHOW */
                 else if (OIL_TEMP < 80)
-                        TARGETPOS_R = 7;
+                        targetR = 7;
                 else if (OIL_TEMP < 110)
-                        TARGETPOS_R = 6; /* CENTER */
+                        targetR = 6; /* CENTER */
                 else if (OIL_TEMP < 120)
-                        TARGETPOS_R = 5;
+                        targetR = 5;
                 else if (OIL_TEMP < 130)
-                        TARGETPOS_R = 4;
+                        targetR = 4;
                 else if (OIL_TEMP < 140)
-                        TARGETPOS_R = 3;
+                        targetR = 3;
                 else if (OIL_TEMP < 150)
-                        TARGETPOS_R = 2;
+                        targetR = 2;
                 else
-                        TARGETPOS_R = 1; /* RED */
+                        targetR = 1; /* RED */
                 break;
         case STATE_EXHAUST:
-                TARGETPOS_L = 20 - int(AFR * 20); /* 0 - 0.5 - 1   */
-                TARGETPOS_R = 7 - int(EGT / 100); /* 0 - 300 - 700 */
+                targetL = 20 - int(AFR * 20); /* 0 - 0.5 - 1   */
+                targetR = 7 - int(EGT / 100); /* 0 - 300 - 700 */
                 break;
         case STATE_BRAKES:
-                TARGETPOS_R = 7 - int(BRAKES_TEMP / 54); /* 0 - 130 - 300 */
+                targetR = 7 - int(BRAKES_TEMP / 54); /* 0 - 130 - 300 */
                 break;
         case STATE_VOLT:
-                TARGETPOS_L = 20 - int(VOLTAGE - 8) * 2; /* 8 - 14  - 18  */
+                targetL = 20 - int(VOLTAGE - 8) * 2; /* 8 - 14  - 18  */
                 break;
         }
 
         // Zero negative vaules and fix over values
-        if (TARGETPOS_L < 1)
-                TARGETPOS_L = 1;
-        if (TARGETPOS_L > 20)
-                TARGETPOS_L = 20;
-        if (TARGETPOS_R < 1)
-                TARGETPOS_R = 1;
-        if (TARGETPOS_R > 8)
-                TARGETPOS_R = 8;
+        TARGETPOS_L = constrain(targetL, 1, 20);
+        TARGETPOS_R = constrain(targetR, 1, 8);
 
         // Arrage positions
         if (POSITION_L < TARGETPOS_L)
@@ -475,9 +476,15 @@ void ReadSensors()
         AFR = (ads.readADC_SingleEnded(AFR_INPUT) * 0.0625f) / 1000.0f;
 
         // Exhaust Gas Temtrature
-        EGT = thermocouple.readCelsius();
-        if ((EGT < 0) || (EGT > 1000))
-                EGT = 0;
+        // MAX6675 needs ~220ms per conversion, so poll it at a lower rate.
+        // readCelsius() returns NAN when the thermocouple is open; valid range is 0..1023.75C.
+        if (millis() >= timeEGT)
+        {
+                timeEGT = millis() + EGT_DELAY;
+                EGT = thermocouple.readCelsius();
+                if (isnan(EGT) || (EGT < 0))
+                        EGT = 0;
+        }
 
         // Brakes temperature
         BRAKES_TEMP = mlx.readObjectTempC();
@@ -504,25 +511,18 @@ void ReadSensors()
                 ALARM_STATUS = true;
         }
 
-        // Overcharge
-        if (VOLTAGE > ALARM_BATTERY_HIGH)
+        // Overcharge / No charge (while engine running)
+        if ((VOLTAGE > ALARM_BATTERY_HIGH) ||
+            ((VOLTAGE < ALARM_BATTERY_LOW) && (OIL_PRESSURE > 1.0f)))
         {
                 LOGO_STATUS = STATE_VOLT;
                 if (ALARM_TIME == 0)
                         ALARM_TIME = millis();
-                if (millis() >= ALARM_TIME + ALARM_BETTERY_DELAY)
+                if (millis() - ALARM_TIME >= ALARM_BETTERY_DELAY)
                         ALARM_STATUS = true;
         }
-
-        // No charge
-        if ((VOLTAGE < ALARM_BATTERY_LOW) && (OIL_PRESSURE > 1.0f))
-        { // while engine running
-                LOGO_STATUS = STATE_VOLT;
-                if (ALARM_TIME == 0)
-                        ALARM_TIME = millis();
-                if (millis() >= ALARM_TIME + ALARM_BETTERY_DELAY)
-                        ALARM_STATUS = true;
-        }
+        else
+                ALARM_TIME = 0; // voltage is back to normal - restart the delay
 
         // High OIL temperature
         if (OIL_TEMP > ALARM_TEMP)
