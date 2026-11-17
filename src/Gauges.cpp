@@ -243,7 +243,7 @@ void setup()
         u8g.setRot180(); // Rorate screen with wires goes down
         do
         {
-                u8g.drawXBMP(0, 0, 128, 64, Prelude_LOGO);
+                DRAW_LOGO(Prelude_LOGO);
         } while (u8g.nextPage());
 
         // AD init
@@ -298,6 +298,18 @@ void LogoSetup()
         }
 }
 
+// fub20r has no degree sign (char 176), so draw it as a small ring
+// right after the current print position, then print "C".
+void printDegreesC()
+{
+        u8g_uint_t x = u8g.getPrintCol();
+        u8g_uint_t y = u8g.getPrintRow();
+        u8g.drawCircle(x + 4, y - 17, 3);
+        u8g.drawCircle(x + 4, y - 17, 2);
+        u8g.setPrintPos(x + 10, y);
+        u8g.print('C');
+}
+
 void DrawGauges()
 {
         int i;
@@ -318,7 +330,7 @@ void DrawGauges()
                                 }
                                 else
                                         digitalWrite(ALARM_PIN, LOW);
-                                u8g.setFont(u8g_font_fub20);
+                                u8g.setFont(u8g_font_fub20r); // ASCII-only font: ~5KB smaller than full fub20
                                 u8g.setPrintPos(0, 23);
                                 // Add extra info to OLED
                                 switch (LOGO_STATUS)
@@ -328,23 +340,20 @@ void DrawGauges()
                                         u8g.print("bar");
                                         u8g.setPrintPos(0, 60);
                                         u8g.print(int(OIL_TEMP));
-                                        u8g.print(char(176));
-                                        u8g.print("C");
+                                        printDegreesC();
                                         break;
                                 case STATE_EXHAUST:
                                         u8g.print("AFR:");
                                         u8g.print(float(AFR));
                                         u8g.setPrintPos(0, 60);
                                         u8g.print(int(EGT));
-                                        u8g.print(char(176));
-                                        u8g.print("C");
+                                        printDegreesC();
                                         break;
                                 case STATE_BRAKES:
                                         u8g.print("Brakes");
                                         u8g.setPrintPos(0, 60);
                                         u8g.print(int(BRAKES_TEMP));
-                                        u8g.print(char(176));
-                                        u8g.print("C");
+                                        printDegreesC();
                                         break;
                                 case STATE_VOLT:
                                         u8g.print("Battery");
@@ -615,16 +624,16 @@ void loop()
                         switch (LOGO_STATUS)
                         {
                         case STATE_OIL:
-                                u8g.drawXBMP(0, 0, 128, 64, oil_LOGO);
+                                DRAW_LOGO(oil_LOGO);
                                 break;
                         case STATE_EXHAUST:
-                                u8g.drawXBMP(0, 0, 128, 64, exhaust_LOGO);
+                                DRAW_LOGO(exhaust_LOGO);
                                 break;
                         case STATE_BRAKES:
-                                u8g.drawXBMP(0, 0, 128, 64, brakes_LOGO);
+                                DRAW_LOGO(brakes_LOGO);
                                 break;
                         case STATE_VOLT:
-                                u8g.drawXBMP(0, 0, 128, 64, battery_LOGO);
+                                DRAW_LOGO(battery_LOGO);
                                 break;
                         default:
                                 break;
