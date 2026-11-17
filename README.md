@@ -204,8 +204,8 @@ pio device monitor
 If PlatformIO picks the wrong port, uncomment `upload_port` in `platformio.ini`
 and set your port there, for example `COM7` or `/dev/ttyUSB0`.
 
-> The firmware uses about **98%** of the Nano's flash. That leaves little room for
-> new features. Disabling `DATALOG_ENABLE` frees some space.
+> The firmware uses about **73%** of the Nano's flash (about 22.5 KB of 30 KB).
+> Disabling `DATALOG_ENABLE` frees another ~1.5 KB.
 
 ## Configuration and calibration
 
@@ -252,10 +252,20 @@ exponential low-pass filter (α = 0.1).
 
 ### Mode logos
 
-The logos are 128×64 monochrome XBM images stored in PROGMEM in
-[`lib/img/img.h`](lib/img/img.h). The source images are in [`icons/`](icons/), as
-BMP and XBM files. To change a logo, draw a new 128×64 1-bit image, export it as
-XBM and replace the matching array in `img.h`.
+The logos are monochrome XBM images stored in PROGMEM in
+[`lib/img/img.h`](lib/img/img.h). The full-size 128×64 sources are in
+[`icons/`](icons/), as BMP and XBM files.
+
+To save flash, each logo in `img.h` is cropped to its content. Four defines give
+its position and size on the 128×64 screen: `<name>_X`, `<name>_Y`, `<name>_W` and
+`<name>_H`. `DRAW_LOGO(name)` draws the logo at that position.
+
+To change a logo:
+
+1. Draw a new 128×64 1-bit image.
+2. Crop it to the content and note the offset of the crop.
+3. Export the cropped image as XBM.
+4. In `img.h`, replace the array and update the four defines.
 
 ## Serial data logging
 
@@ -303,7 +313,8 @@ it in a spreadsheet.
 - Readings of the MAX6675 below 0 °C, and readings with an open thermocouple, are
   shown as 0.
 - Brake temperatures above 380 °C are treated as invalid and shown as 0.
-- Flash is almost full, at about 98% of 30 KB.
+- The OLED font (`u8g_font_fub20r`) is ASCII-only, so the degree sign is drawn
+  as a small ring by `printDegreesC()`.
 
 ## License
 
